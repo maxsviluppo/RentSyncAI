@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { UserSession } from '../types';
-import { Building2, User, ArrowRight, ShieldCheck, Car, Key, Loader2, Sparkles } from 'lucide-react';
+import { Building2, User, ArrowRight, ShieldCheck, Car, Key, Loader2, Sparkles, ShieldAlert } from 'lucide-react';
 
 interface LoginPortalProps {
     onLogin: (session: UserSession) => void;
@@ -41,6 +41,13 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLogin }) => {
 
     const handleQuickLogin = () => {
         onLogin({ role: 'agency', name: 'Demo User' });
+    };
+
+    const handleApiKeySetup = async () => {
+        if (window.aistudio?.openSelectKey) {
+            await window.aistudio.openSelectKey();
+            alert("Configurazione API completata. Ora puoi procedere con il login.");
+        }
     };
 
     return (
@@ -105,14 +112,21 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onLogin }) => {
                             </button>
                         </div>
 
-                        <div className="mt-10 pt-10 border-t border-slate-100 text-center">
-                            <p className="text-xs text-slate-400 mb-4 uppercase font-bold tracking-widest">Sei un revisore o tester?</p>
+                        <div className="mt-8 pt-8 border-t border-slate-100 space-y-3">
                             <button 
                                 onClick={handleQuickLogin}
-                                className="w-full py-4 bg-emerald-50 text-emerald-700 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-100 transition-all border border-emerald-200"
+                                className="w-full py-3.5 bg-emerald-50 text-emerald-700 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-100 transition-all border border-emerald-200"
                             >
                                 <Sparkles className="w-5 h-5" /> Accesso Rapido Demo
                             </button>
+                            
+                            <button 
+                                onClick={handleApiKeySetup}
+                                className="w-full py-3 text-slate-500 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-50 transition-all border border-slate-200 text-xs"
+                            >
+                                <Key className="w-3.5 h-3.5" /> Usa Chiave API Personale (Paid)
+                            </button>
+                            <p className="text-[10px] text-center text-slate-400 px-4">Consigliato se ricevi errori di quota durante la ricerca lead.</p>
                         </div>
                     </div>
                 ) : (

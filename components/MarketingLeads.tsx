@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { generateMarketingCopy, findLeads } from '../services/gemini';
 import { useApp } from '../contexts/AppContext';
 import { MarketingLead, Car } from '../types';
-import { Mail, MessageSquare, Loader2, UserPlus, Search, Globe, Plus, Sparkles, MapPin, Upload, X, Trash2, Car as CarIcon, CheckCircle2, Phone, Map, ChevronRight, Info, Zap, Building2, Wand2, ExternalLink, Link2, AlertCircle } from 'lucide-react';
+import { Mail, MessageSquare, Loader2, UserPlus, Search, Globe, Plus, Sparkles, MapPin, Upload, X, Trash2, Car as CarIcon, CheckCircle2, Phone, Map, ChevronRight, Info, Zap, Building2, Wand2, ExternalLink, Link2, AlertCircle, Key, ShieldAlert } from 'lucide-react';
 
 const MarketingLeads: React.FC = () => {
   const { leads, addLead, deleteLead, fleet, companyProfile } = useApp();
@@ -21,6 +21,7 @@ const MarketingLeads: React.FC = () => {
   const [foundLeads, setFoundLeads] = useState<Partial<MarketingLead>[]>([]);
   const [foundSources, setFoundSources] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [quotaError, setQuotaError] = useState(false);
 
   const [toast, setToast] = useState<{message: string, visible: boolean}>({ message: '', visible: false });
 
@@ -32,6 +33,14 @@ const MarketingLeads: React.FC = () => {
   }, [toast.visible]);
 
   const showToast = (message: string) => setToast({ message, visible: true });
+
+  const handleOpenApiKeyDialog = async () => {
+    if (window.aistudio?.openSelectKey) {
+        await window.aistudio.openSelectKey();
+        setQuotaError(false); // Reset error state after key selection attempt
+        showToast("Chiave API aggiornata. Riprova la ricerca.");
+    }
+  };
 
   const handleGenerateEmail = async () => {
     if (!selectedLead || selectedCars.length === 0) {
@@ -56,10 +65,16 @@ const MarketingLeads: React.FC = () => {
       setSearchLoading(true);
       setFoundLeads([]);
       setFoundSources([]);
+      setQuotaError(false);
       try {
           const result = await findLeads(searchTarget, searchLocation);
-          setFoundLeads(result.leads);
-          setFoundSources(result.sources);
+          if (result.error === "QUOTA_EXCEEDED") {
+              setQuotaError(true);
+              showToast("Limite quota API raggiunto.");
+          } else {
+              setFoundLeads(result.leads);
+              setFoundSources(result.sources);
+          }
       } catch (e) {
           showToast("Errore durante la ricerca.");
       } finally {
@@ -221,6 +236,24 @@ const MarketingLeads: React.FC = () => {
                   </button>
               </div>
 
+              {quotaError && (
+                  <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center justify-between animate-in slide-in-from-top duration-300">
+                      <div className="flex items-center gap-3">
+                          <ShieldAlert className="w-6 h-6 text-amber-600" />
+                          <div>
+                              <p className="font-bold text-amber-900 text-sm">Quota API Esaurita</p>
+                              <p className="text-amber-700 text-xs">Il limite di ricerca per la chiave condivisa è stato raggiunto. Usa una chiave API personale.</p>
+                          </div>
+                      </div>
+                      <button 
+                        onClick={handleOpenApiKeyDialog}
+                        className="bg-amber-600 text-white px-4 py-2 rounded-lg font-bold text-xs hover:bg-amber-700 flex items-center gap-2 shadow-sm"
+                      >
+                          <Key className="w-4 h-4"/> Usa la mia Chiave API
+                      </button>
+                  </div>
+              )}
+
               <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden min-h-0">
                   <div className="lg:col-span-2 overflow-y-auto pr-2 custom-scrollbar space-y-4">
                       {searchLoading && (
@@ -262,7 +295,7 @@ const MarketingLeads: React.FC = () => {
                               </div>
                           </div>
                       ))}
-                      {!searchLoading && foundLeads.length === 0 && searchTarget && (
+                      {!searchLoading && foundLeads.length === 0 && searchTarget && !quotaError && (
                           <div className="h-64 flex flex-col items-center justify-center bg-white rounded-2xl border-2 border-dashed text-slate-300">
                               <AlertCircle className="w-12 h-12 mb-2 opacity-10"/>
                               <p>Nessun lead trovato per questi parametri.</p>

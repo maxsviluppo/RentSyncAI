@@ -1,15 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { RiskAnalysisResult, Car, DriverProfile, AIRecommendation, MarketingLead, CompanyProfile } from "../types";
 
-const getApiKey = () => localStorage.getItem('RENT_SYNC_API_KEY') || process.env.API_KEY;
-
+// Always create a new instance right before the call to ensure the latest API key is used
 const getAiClient = () => {
-  const key = getApiKey();
-  if (!key) throw new Error("API Key mancante.");
-  return new GoogleGenAI({ apiKey: key });
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
-// Utilizzo di gemini-3-flash-preview per task di testo e ricerca secondo le linee guida
 const modelId = "gemini-3-flash-preview";
 
 const cleanJson = (text: string): string => {
@@ -42,38 +38,26 @@ export const generateMarketingCopy = async (
   
   const prompt = `
     Scrivi un'email commerciale persuasiva da parte di ${companyProfile?.name || 'RentSync'}.
-    
     DESTINATARIO: ${leadName}
-    MOTIVO CONTATTO (Perché l'IA ha suggerito questo cliente): "${interest}"
+    MOTIVO CONTATTO: "${interest}"
     TONO RICHIESTO: ${tone}
-    
-    PROPOSTA VEICOLI (Personalizza la descrizione basandoti su questi dati):
+    PROPOSTA VEICOLI:
     ${offersText}
-    
-    REGOLE:
-    1. Inizia con un riferimento personalizzato alla loro attività/bisogno (basato sul campo MOTIVO CONTATTO).
-    2. Descrivi come le caratteristiche specifiche delle auto proposte risolvono i loro problemi.
-    3. Concludi con una Call To Action chiara verso ${companyProfile?.website || 'il nostro sito'}.
   `;
 
   const response = await ai.models.generateContent({ model: modelId, contents: prompt });
   return response.text || "";
 };
 
-export const findLeads = async (target: string, location: string): Promise<{leads: Partial<MarketingLead>[], sources: any[]}> => {
+export const findLeads = async (target: string, location: string): Promise<{leads: Partial<MarketingLead>[], sources: any[], error?: string}> => {
     const ai = getAiClient();
     const prompt = `
       Cerca su Google aziende REALI del settore specifico "${target}" a "${location}".
-      
-      LOGICA DI FILTRO ULTRA-STRETTA:
-      1. Se l'azienda trovata NON appartiene chiaramente al settore "${target}", ignorala totalmente.
-      2. Per ogni azienda valida, analizza il loro profilo web e scrivi nel campo "interest" una MOTIVAZIONE LOGICA del perché il noleggio a lungo termine (flotta) sia vantaggioso per loro (es. "Necessità di berline di lusso per il trasporto dei partner dello studio" o "Risparmio fiscale su flotta ibrida per consegne urbane").
-      3. Cerca di includere email e telefono se visibili.
-      
+      Regole: Filtra rigorosamente per settore. Scrivi una motivazione strategica per il noleggio.
       Restituisci ESCLUSIVAMENTE un JSON:
       {
         "leads": [
-          { "name": "Nome", "interest": "Motivazione strategica", "location": "Indirizzo", "email": "email", "phone": "tel" }
+          { "name": "Nome", "interest": "Motivazione", "location": "Indirizzo", "email": "email", "phone": "tel" }
         ]
       }
     `;
@@ -90,9 +74,12 @@ export const findLeads = async (target: string, location: string): Promise<{lead
         const data = JSON.parse(cleanJson(response.text || '{"leads":[]}'));
         const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
         return { leads: data.leads || [], sources };
-    } catch (e) {
+    } catch (e: any) {
         console.error("Errore findLeads:", e);
-        return { leads: [], sources: [] };
+        if (e.message?.includes("429") || e.message?.includes("RESOURCE_EXHAUSTED")) {
+            return { leads: [], sources: [], error: "QUOTA_EXCEEDED" };
+        }
+        return { leads: [], sources: [], error: e.message };
     }
 }
 
