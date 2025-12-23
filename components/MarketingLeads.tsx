@@ -36,7 +36,7 @@ const MarketingLeads: React.FC = () => {
         await window.aistudio.openSelectKey();
         setQuotaError(false);
         setPermissionError(false);
-        showToast("Configurazione aggiornata.");
+        showToast("Chiave aggiornata. Riprova la ricerca.");
     }
   };
 
@@ -98,7 +98,7 @@ const MarketingLeads: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-3xl font-bold text-slate-800">Marketing & Lead Generation</h2>
-          <p className="text-slate-500">Trova nuovi clienti con la ricerca avanzata Google Search.</p>
+          <p className="text-slate-500">Trova lead qualificati usando Google Search Grounding.</p>
         </div>
         <div className="flex gap-2">
            <button onClick={() => setActiveTab('list')} className={`px-5 py-2.5 rounded-xl font-bold transition-all ${activeTab === 'list' ? 'bg-slate-900 text-white shadow-lg' : 'bg-white text-slate-600 border'}`}>Database Leads</button>
@@ -111,7 +111,7 @@ const MarketingLeads: React.FC = () => {
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-end animate-in fade-in duration-500">
                   <div className="flex-[2] w-full">
                       <label className="text-[10px] font-bold text-indigo-600 uppercase mb-1 block ml-2">Settore Specifico</label>
-                      <input type="text" placeholder="es. Dentisti, Hotel, Aziende IT..." className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" value={searchTarget} onChange={e => setSearchTarget(e.target.value)} />
+                      <input type="text" placeholder="es. Medici, Avvocati, Hotel..." className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" value={searchTarget} onChange={e => setSearchTarget(e.target.value)} />
                   </div>
                   <div className="flex-1 w-full">
                       <label className="text-[10px] font-bold text-indigo-600 uppercase mb-1 block ml-2">Città</label>
@@ -129,16 +129,13 @@ const MarketingLeads: React.FC = () => {
                           <div>
                               <p className="font-bold text-red-900 text-lg">Strumento Ricerca Disabilitato (403)</p>
                               <p className="text-red-700 text-sm mt-1">
-                                La tua chiave API non ha il permesso per usare "Google Search". 
-                                <br/>Per risolvere: 
-                                1. Vai su <a href="https://aistudio.google.com/app/apikey" target="_blank" className="underline font-bold">Google AI Studio</a>.
-                                2. Seleziona la tua chiave e assicurati che lo strumento **Google Search** sia abilitato.
-                                3. Assicurati che il progetto sia un **Paid Project** (Tier 1+).
+                                La tua chiave non ha il permesso per usare "Google Search". 
+                                <br/>Assicurati che la chiave appartenga a un **Paid Project** con fatturazione attiva su Google Cloud.
                               </p>
                           </div>
                       </div>
                       <button onClick={handleOpenKeySelector} className="bg-red-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-red-700 shadow-lg transition-all">
-                          <Key className="w-5 h-5"/> Cambia Chiave API
+                          <Key className="w-5 h-5"/> Collega la tua Chiave API (Paid)
                       </button>
                   </div>
               )}
@@ -148,14 +145,15 @@ const MarketingLeads: React.FC = () => {
                       <div className="flex items-center gap-4 mb-4">
                           <div className="p-3 bg-amber-100 rounded-full text-amber-600"><ShieldAlert className="w-6 h-6" /></div>
                           <div>
-                              <p className="font-bold text-amber-900 text-lg">Limite Quota (429)</p>
+                              <p className="font-bold text-amber-900 text-lg">Quota Superata (429)</p>
                               <p className="text-amber-700 text-sm mt-1">
-                                Hai esaurito le richieste gratuite. Per continuare, utilizza una chiave legata a un progetto con fatturazione attiva.
+                                Hai raggiunto il limite di richieste gratuite per questo modello. 
+                                <br/>Seleziona la tua chiave personale creata su Google AI Studio per procedere.
                               </p>
                           </div>
                       </div>
                       <button onClick={handleOpenKeySelector} className="bg-amber-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-amber-700 shadow-lg transition-all">
-                          <Key className="w-5 h-5"/> Seleziona Chiave Paid
+                          <Key className="w-5 h-5"/> Seleziona la tua Chiave Personale
                       </button>
                   </div>
               )}
@@ -165,7 +163,7 @@ const MarketingLeads: React.FC = () => {
                       {searchLoading && (
                           <div className="h-64 flex flex-col items-center justify-center bg-white rounded-2xl border-2 border-dashed border-indigo-100 animate-pulse text-indigo-600">
                               <Loader2 className="w-12 h-12 animate-spin mb-4"/>
-                              <p className="font-bold text-lg">Ricerca Google in corso...</p>
+                              <p className="font-bold text-lg">Scansione Google in corso...</p>
                           </div>
                       )}
                       {!searchLoading && foundLeads.map((lead, idx) => (
@@ -173,41 +171,40 @@ const MarketingLeads: React.FC = () => {
                               <div className="flex-1">
                                   <div className="flex justify-between items-start mb-2">
                                       <h4 className="font-bold text-slate-900 text-lg">{lead.name}</h4>
-                                      <span className="text-[10px] font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full uppercase flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Target Trovato</span>
+                                      <span className="text-[10px] font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full uppercase flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Reale</span>
                                   </div>
                                   <p className="text-xs text-slate-500 mb-4 flex items-center gap-1 font-medium"><MapPin className="w-3 h-3 text-red-400"/> {lead.location}</p>
                                   <div className="bg-indigo-50/50 p-4 rounded-2xl border-l-4 border-indigo-400 mb-4 shadow-inner">
-                                      <p className="text-[10px] font-bold text-indigo-500 uppercase mb-1">Opportunità</p>
                                       <p className="text-sm text-indigo-900 font-semibold italic">"{lead.interest}"</p>
                                   </div>
                               </div>
                               <div className="flex md:flex-col justify-center gap-2">
-                                  <button onClick={() => importLead(lead)} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800 transition-all">Importa nel CRM</button>
+                                  <button onClick={() => importLead(lead)} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800 transition-all">Importa</button>
                               </div>
                           </div>
                       ))}
                       {!searchLoading && foundLeads.length === 0 && !quotaError && !permissionError && (
                           <div className="h-64 flex flex-col items-center justify-center text-slate-400 italic">
                              <Search className="w-12 h-12 mb-4 opacity-10" />
-                             <p>Inserisci settore e città per trovare nuovi clienti.</p>
+                             <p>Avvia una ricerca per popolare il radar.</p>
                           </div>
                       )}
                   </div>
                   <div className="space-y-6 h-full flex flex-col">
                       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col">
-                          <div className="p-3 bg-slate-50 border-b flex items-center gap-2"><Map className="w-4 h-4 text-indigo-600"/><span className="text-xs font-bold text-slate-700 uppercase tracking-widest">Geolocalizzazione</span></div>
+                          <div className="p-3 bg-slate-50 border-b flex items-center gap-2"><Map className="w-4 h-4 text-indigo-600"/><span className="text-xs font-bold text-slate-700 uppercase tracking-widest">Mappa Risultati</span></div>
                           <div className="flex-1 bg-slate-100 relative">
-                              {foundLeads.length > 0 ? <iframe width="100%" height="100%" frameBorder="0" src={`https://maps.google.com/maps?q=${encodeURIComponent(searchTarget + ' ' + searchLocation)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}></iframe> : <div className="h-full flex items-center justify-center text-slate-300 italic text-xs text-center p-8">Avvia la ricerca per vedere i risultati sulla mappa.</div>}
+                              {foundLeads.length > 0 ? <iframe width="100%" height="100%" frameBorder="0" src={`https://maps.google.com/maps?q=${encodeURIComponent(searchTarget + ' ' + searchLocation)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}></iframe> : <div className="h-full flex items-center justify-center text-slate-300 italic text-xs text-center p-8">Mappa interattiva.</div>}
                           </div>
                       </div>
                       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden h-40 flex flex-col">
-                          <div className="p-3 bg-slate-50 border-b flex items-center gap-2"><Link2 className="w-4 h-4 text-indigo-600"/><span className="text-xs font-bold text-slate-700 uppercase tracking-widest">Fonti Grounding</span></div>
+                          <div className="p-3 bg-slate-50 border-b flex items-center gap-2"><Link2 className="w-4 h-4 text-indigo-600"/><span className="text-xs font-bold text-slate-700 uppercase tracking-widest">Fonti Google</span></div>
                           <div className="flex-1 p-4 overflow-y-auto space-y-2 bg-slate-50/30">
                               {foundSources.length > 0 ? foundSources.map((source, i) => (
                                   <div key={i} className="text-[10px] text-slate-500 bg-white border border-slate-200 p-2 rounded-lg flex items-center gap-2">
                                       <span className="truncate flex-1">{source.web?.uri || source.maps?.uri}</span><ExternalLink className="w-3 h-3 text-slate-300"/>
                                   </div>
-                              )) : <div className="h-full flex items-center justify-center text-slate-300 text-[10px] italic">Le fonti Google Search appariranno qui.</div>}
+                              )) : <div className="h-full flex items-center justify-center text-slate-300 text-[10px] italic">Nessuna fonte.</div>}
                           </div>
                       </div>
                   </div>

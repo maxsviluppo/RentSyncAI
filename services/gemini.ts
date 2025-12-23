@@ -7,11 +7,11 @@ const getAiClient = () => {
 };
 
 const textModelId = "gemini-3-flash-preview";
-const proModelId = "gemini-3-pro-preview"; // Modello pro per compiti complessi di ricerca
+// Modello obbligatorio per googleSearch con chiavi personali/paid
+const searchModelId = "gemini-3-pro-image-preview"; 
 
 const cleanJson = (text: string): string => {
   if (!text) return "{}";
-  // Rimuove markdown e cerca di estrarre solo il contenuto tra parentesi se presente
   let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
   const jsonStart = cleaned.indexOf('{');
   const jsonEnd = cleaned.lastIndexOf('}');
@@ -25,16 +25,14 @@ export const findLeads = async (target: string, location: string): Promise<{lead
     const ai = getAiClient();
     const prompt = `Agisci come un esperto di lead generation. Cerca aziende REALI del settore "${target}" a "${location}". 
     Restituisci ESCLUSIVAMENTE un oggetto JSON valido con questa struttura: 
-    {"leads": [{"name": "Nome Azienda", "interest": "Perché potrebbero noleggiare un auto", "location": "Indirizzo", "email": "email se trovata", "phone": "telefono"}]}.
-    Non aggiungere commenti o testo extra prima o dopo il JSON.`;
+    {"leads": [{"name": "Nome Azienda", "interest": "Perché potrebbero noleggiare un auto", "location": "Indirizzo", "email": "email se trovata", "phone": "telefono"}]}.`;
 
     try {
         const response = await ai.models.generateContent({
-            model: proModelId,
+            model: searchModelId,
             contents: prompt,
             config: { 
                 tools: [{googleSearch: {}}],
-                // Nota: non usiamo responseMimeType qui perché il grounding di ricerca può interferire
             }
         });
         
@@ -43,20 +41,17 @@ export const findLeads = async (target: string, location: string): Promise<{lead
         const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
         return { leads: data.leads || [], sources };
     } catch (e: any) {
-        console.error("Errore findLeads dettagliato:", e);
+        console.error("Errore findLeads:", e);
         const msg = e.message || "";
         
-        // Gestione Permission Denied (403)
-        if (msg.includes("403") || msg.includes("permission") || msg.includes("PERMISSION_DENIED")) {
+        if (msg.includes("403") || msg.includes("PERMISSION_DENIED")) {
             return { leads: [], sources: [], error: "PERMISSION_DENIED", status: 403 };
         }
         
-        // Gestione Quota Exceeded (429)
         if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED")) {
             return { leads: [], sources: [], error: "QUOTA_EXCEEDED", status: 429 };
         }
 
-        // Gestione Chiave non valida / Progetto non trovato
         if (msg.includes("Requested entity was not found")) {
             return { leads: [], sources: [], error: "INVALID_KEY", status: 404 };
         }
