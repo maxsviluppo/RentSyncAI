@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, Schema } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { RiskAnalysisResult, Car, DriverProfile, AIRecommendation, MarketingLead, CompanyProfile } from "../types";
 
 const getApiKey = () => localStorage.getItem('RENT_SYNC_API_KEY') || process.env.API_KEY;
@@ -9,7 +9,8 @@ const getAiClient = () => {
   return new GoogleGenAI({ apiKey: key });
 };
 
-const modelId = "gemini-2.5-flash";
+// Utilizzo di gemini-3-flash-preview per task di testo e ricerca secondo le linee guida
+const modelId = "gemini-3-flash-preview";
 
 const cleanJson = (text: string): string => {
   if (!text) return "{}";
@@ -74,11 +75,15 @@ export const findLeads = async (target: string, location: string): Promise<Parti
         const response = await ai.models.generateContent({
             model: modelId,
             contents: prompt,
-            config: { tools: [{googleSearch: {}}] }
+            config: { 
+                tools: [{googleSearch: {}}],
+                responseMimeType: "application/json"
+            }
         });
         const data = JSON.parse(cleanJson(response.text || '{"leads":[]}'));
         return data.leads || [];
     } catch (e) {
+        console.error("Errore findLeads:", e);
         return [];
     }
 }
