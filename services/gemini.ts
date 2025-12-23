@@ -1,11 +1,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { RiskAnalysisResult, Car, DriverProfile, AIRecommendation, MarketingLead, CompanyProfile } from "../types";
 
+// Crea una nuova istanza ad ogni chiamata per usare la chiave API aggiornata dal selettore
 const getAiClient = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 const textModelId = "gemini-3-flash-preview";
+// Modello obbligatorio per utilizzare lo strumento googleSearch con grounding
 const searchModelId = "gemini-3-pro-image-preview"; 
 
 const cleanJson = (text: string): string => {
@@ -19,21 +21,17 @@ const cleanJson = (text: string): string => {
   return cleaned;
 };
 
-// Funzione per generare lead fittizi di alta qualità per il test (Simulation Mode)
+// Generatore di lead simulati per test senza chiave Paid
 const getMockLeads = (target: string, location: string): Partial<MarketingLead>[] => {
-    const sectors: Record<string, string> = {
-        'dentisti': 'Studio Dentistico',
-        'hotel': 'Grand Hotel',
-        'ristorante': 'Trattoria',
-        'avvocati': 'Studio Legale',
-        'it': 'Tech Solutions',
-    };
-    const base = sectors[target.toLowerCase()] || target;
-    return [
-        { name: `${base} Rossi & Co.`, interest: `Necessità di 2 SUV per trasferte aziendali a ${location}.`, location: `Via Roma 15, ${location}`, email: `info@${target.replace(/\s/g, '')}rossi.it`, phone: '02 1234567' },
-        { name: `${base} Innovazione`, interest: `Flotta per dipendenti junior (utilitarie elettriche).`, location: `Viale Europa 8, ${location}`, email: `hr@innovazione-${target.replace(/\s/g, '')}.com`, phone: '06 9998887' },
-        { name: `Consulenza ${target.charAt(0).toUpperCase() + target.slice(1)}`, interest: `Noleggio a lungo termine per auto di rappresentanza.`, location: `Piazza Grande 1, ${location}`, email: `admin@consulenza.it`, phone: '081 555666' }
-    ];
+    const baseNames = ["Studio", "Azienda", "Group", "Consulting", "Impresa"];
+    return [0, 1, 2].map(i => ({
+        name: `${baseNames[i]} ${target} ${location}`,
+        company: `${baseNames[i]} ${target} Associati`,
+        interest: `Potenziale bisogno di noleggio a lungo termine per flotta agenti operanti nel settore ${target}.`,
+        location: `Indirizzo simulato ${i+1}, ${location}`,
+        email: `contatto${i}@esempio-${target.toLowerCase().replace(/\s/g, '')}.it`,
+        phone: `+39 0${i}${i} 1234567`
+    }));
 };
 
 export const findLeads = async (target: string, location: string, simulate: boolean = false): Promise<{leads: Partial<MarketingLead>[], sources: any[], error?: string, status?: number, isSimulated?: boolean}> => {
@@ -42,14 +40,22 @@ export const findLeads = async (target: string, location: string, simulate: bool
     }
 
     const ai = getAiClient();
-    const prompt = `Agisci come un esperto di lead generation. Cerca aziende REALI del settore "${target}" a "${location}". 
-    Restituisci ESCLUSIVAMENTE un oggetto JSON: {"leads": [{"name": "...", "interest": "...", "location": "...", "email": "...", "phone": "..."}]}.`;
+    // Prompt rinforzato per ottenere JSON pulito anche senza responseMimeType
+    const prompt = `Agisci come un esperto di lead generation commerciale. 
+    Cerca aziende REALI e ATTIVE del settore "${target}" a "${location}" utilizzando Google Search.
+    Per ogni azienda trovata, identifica il nome, l'indirizzo, e ipotizza il loro interesse per il noleggio auto.
+    Restituisci i dati ESCLUSIVAMENTE come un oggetto JSON con questa struttura: 
+    {"leads": [{"name": "Nome", "interest": "Dettaglio bisogno", "location": "Indirizzo", "email": "...", "phone": "..."}]}.
+    Non aggiungere chiacchiere o altro testo fuori dal JSON.`;
 
     try {
         const response = await ai.models.generateContent({
             model: searchModelId,
             contents: prompt,
-            config: { tools: [{googleSearch: {}}] }
+            config: { 
+                tools: [{googleSearch: {}}],
+                // Nota: responseMimeType: "application/json" NON è usato qui per permettere il Grounding
+            }
         });
         
         const rawText = response.text || "";
@@ -57,10 +63,13 @@ export const findLeads = async (target: string, location: string, simulate: bool
         const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
         return { leads: data.leads || [], sources };
     } catch (e: any) {
+        console.error("Errore findLeads:", e);
         const msg = e.message || "";
+        // Gestione specifica Errore 403 (Permesso Negato per Google Search)
         if (msg.includes("403") || msg.includes("PERMISSION_DENIED")) {
             return { leads: [], sources: [], error: "PERMISSION_DENIED", status: 403 };
         }
+        // Gestione specifica Errore 429 (Quota esaurita)
         if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED")) {
             return { leads: [], sources: [], error: "QUOTA_EXCEEDED", status: 429 };
         }
