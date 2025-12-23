@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { generateMarketingCopy, findLeads } from '../services/gemini';
 import { useApp } from '../contexts/AppContext';
 import { MarketingLead, Car } from '../types';
-import { Mail, MessageSquare, Loader2, Search, Globe, Plus, Sparkles, MapPin, X, Car as CarIcon, CheckCircle2, Phone, Map, Info, Zap, Building2, Link2, ExternalLink, Key, ShieldAlert, AlertCircle, Save, ShieldX } from 'lucide-react';
+import { Mail, MessageSquare, Loader2, Search, Globe, Plus, Sparkles, MapPin, X, Car as CarIcon, CheckCircle2, Phone, Map, Info, Zap, Building2, Link2, ExternalLink, Key, ShieldAlert, AlertCircle, Save, ShieldX, ExternalLink as LinkIcon, FlaskConical } from 'lucide-react';
 
 const MarketingLeads: React.FC = () => {
   const { leads, addLead, fleet, companyProfile } = useApp();
@@ -20,6 +20,7 @@ const MarketingLeads: React.FC = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [quotaError, setQuotaError] = useState(false);
   const [permissionError, setPermissionError] = useState(false);
+  const [isSimulated, setIsSimulated] = useState(false);
   const [toast, setToast] = useState({ message: '', visible: false });
 
   useEffect(() => {
@@ -36,31 +37,22 @@ const MarketingLeads: React.FC = () => {
         await window.aistudio.openSelectKey();
         setQuotaError(false);
         setPermissionError(false);
-        showToast("Chiave aggiornata. Riprova la ricerca.");
+        showToast("Configurazione aggiornata.");
     }
   };
 
-  const handleSearchLeads = async () => {
+  const handleSearchLeads = async (simulate: boolean = false) => {
       if(!searchTarget || !searchLocation) return;
       
-      const hasKey = await window.aistudio.hasSelectedApiKey();
-      if (!hasKey) {
-          if (window.aistudio?.openSelectKey) {
-              await window.aistudio.openSelectKey();
-          } else {
-              setQuotaError(true);
-              return;
-          }
-      }
-
       setSearchLoading(true);
       setFoundLeads([]);
       setFoundSources([]);
       setQuotaError(false);
       setPermissionError(false);
+      setIsSimulated(simulate);
       
       try {
-          const result = await findLeads(searchTarget, searchLocation);
+          const result = await findLeads(searchTarget, searchLocation, simulate);
           if (result.error === "QUOTA_EXCEEDED") {
               setQuotaError(true);
           } else if (result.error === "PERMISSION_DENIED") {
@@ -70,6 +62,7 @@ const MarketingLeads: React.FC = () => {
           } else {
               setFoundLeads(result.leads);
               setFoundSources(result.sources);
+              if (simulate) showToast("Simulazione attivata con successo.");
           }
       } catch (e) {
           showToast("Errore durante la ricerca.");
@@ -110,51 +103,43 @@ const MarketingLeads: React.FC = () => {
           <div className="flex-1 flex flex-col space-y-6 overflow-hidden">
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-end animate-in fade-in duration-500">
                   <div className="flex-[2] w-full">
-                      <label className="text-[10px] font-bold text-indigo-600 uppercase mb-1 block ml-2">Settore Specifico</label>
-                      <input type="text" placeholder="es. Medici, Avvocati, Hotel..." className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" value={searchTarget} onChange={e => setSearchTarget(e.target.value)} />
+                      <label className="text-[10px] font-bold text-indigo-600 uppercase mb-1 block ml-2">Settore Target</label>
+                      <input type="text" placeholder="es. Dentisti, Hotel, Aziende IT..." className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" value={searchTarget} onChange={e => setSearchTarget(e.target.value)} />
                   </div>
                   <div className="flex-1 w-full">
                       <label className="text-[10px] font-bold text-indigo-600 uppercase mb-1 block ml-2">Città</label>
                       <input type="text" placeholder="Milano, Roma..." className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" value={searchLocation} onChange={e => setSearchLocation(e.target.value)} />
                   </div>
-                  <button onClick={handleSearchLeads} disabled={searchLoading || !searchTarget} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 h-[46px] disabled:opacity-50 hover:bg-indigo-700 shadow-lg transition-all">
-                     {searchLoading ? <Loader2 className="animate-spin w-5 h-5"/> : <Search className="w-5 h-5"/>} Avvia Ricerca
+                  <button onClick={() => handleSearchLeads(false)} disabled={searchLoading || !searchTarget} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 h-[46px] disabled:opacity-50 hover:bg-indigo-700 shadow-lg transition-all">
+                     {searchLoading ? <Loader2 className="animate-spin w-5 h-5"/> : <Search className="w-5 h-5"/>} Avvia Ricerca Reale
                   </button>
               </div>
 
               {permissionError && (
-                  <div className="bg-red-50 border border-red-200 p-6 rounded-2xl animate-in slide-in-from-top duration-300">
-                      <div className="flex items-center gap-4 mb-4">
-                          <div className="p-3 bg-red-100 rounded-full text-red-600"><ShieldX className="w-6 h-6" /></div>
-                          <div>
-                              <p className="font-bold text-red-900 text-lg">Strumento Ricerca Disabilitato (403)</p>
-                              <p className="text-red-700 text-sm mt-1">
-                                La tua chiave non ha il permesso per usare "Google Search". 
-                                <br/>Assicurati che la chiave appartenga a un **Paid Project** con fatturazione attiva su Google Cloud.
-                              </p>
+                  <div className="bg-indigo-50 border border-indigo-200 p-8 rounded-2xl animate-in slide-in-from-top duration-300 shadow-xl">
+                      <div className="flex items-start gap-6">
+                          <div className="p-4 bg-white rounded-2xl text-indigo-600 shadow-sm border border-indigo-100"><ShieldX className="w-8 h-8" /></div>
+                          <div className="flex-1">
+                              <p className="font-bold text-slate-900 text-xl mb-2">Permesso Negato (403)</p>
+                              <div className="text-slate-600 space-y-3 text-sm leading-relaxed mb-6">
+                                <p>Non hai una chiave "Paid" abilitata per Google Search, ma non preoccuparti! <b>Puoi testare l'intera app usando la simulazione.</b></p>
+                              </div>
+                              <div className="flex gap-3">
+                                <button onClick={() => handleSearchLeads(true)} className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 shadow-lg transition-all">
+                                    <FlaskConical className="w-5 h-5"/> Attiva Simulazione Gratis
+                                </button>
+                                <button onClick={handleOpenKeySelector} className="bg-white text-slate-600 border border-slate-200 px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-50 transition-all">
+                                    <Key className="w-4 h-4"/> Configura Chiave Reale
+                                </button>
+                              </div>
                           </div>
                       </div>
-                      <button onClick={handleOpenKeySelector} className="bg-red-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-red-700 shadow-lg transition-all">
-                          <Key className="w-5 h-5"/> Collega la tua Chiave API (Paid)
-                      </button>
                   </div>
               )}
 
-              {quotaError && (
-                  <div className="bg-amber-50 border border-amber-200 p-6 rounded-2xl animate-in slide-in-from-top duration-300">
-                      <div className="flex items-center gap-4 mb-4">
-                          <div className="p-3 bg-amber-100 rounded-full text-amber-600"><ShieldAlert className="w-6 h-6" /></div>
-                          <div>
-                              <p className="font-bold text-amber-900 text-lg">Quota Superata (429)</p>
-                              <p className="text-amber-700 text-sm mt-1">
-                                Hai raggiunto il limite di richieste gratuite per questo modello. 
-                                <br/>Seleziona la tua chiave personale creata su Google AI Studio per procedere.
-                              </p>
-                          </div>
-                      </div>
-                      <button onClick={handleOpenKeySelector} className="bg-amber-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-amber-700 shadow-lg transition-all">
-                          <Key className="w-5 h-5"/> Seleziona la tua Chiave Personale
-                      </button>
+              {isSimulated && !searchLoading && (
+                  <div className="bg-amber-100 text-amber-800 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border border-amber-200">
+                      <FlaskConical className="w-4 h-4" /> MODALITÀ SIMULAZIONE ATTIVA: I risultati mostrati sono generati per il test funzionale.
                   </div>
               )}
 
@@ -163,7 +148,7 @@ const MarketingLeads: React.FC = () => {
                       {searchLoading && (
                           <div className="h-64 flex flex-col items-center justify-center bg-white rounded-2xl border-2 border-dashed border-indigo-100 animate-pulse text-indigo-600">
                               <Loader2 className="w-12 h-12 animate-spin mb-4"/>
-                              <p className="font-bold text-lg">Scansione Google in corso...</p>
+                              <p className="font-bold text-lg">Analisi in corso...</p>
                           </div>
                       )}
                       {!searchLoading && foundLeads.map((lead, idx) => (
@@ -171,7 +156,7 @@ const MarketingLeads: React.FC = () => {
                               <div className="flex-1">
                                   <div className="flex justify-between items-start mb-2">
                                       <h4 className="font-bold text-slate-900 text-lg">{lead.name}</h4>
-                                      <span className="text-[10px] font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full uppercase flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Reale</span>
+                                      <span className="text-[10px] font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full uppercase flex items-center gap-1"><CheckCircle2 className="w-3 h-3"/> Target Identificato</span>
                                   </div>
                                   <p className="text-xs text-slate-500 mb-4 flex items-center gap-1 font-medium"><MapPin className="w-3 h-3 text-red-400"/> {lead.location}</p>
                                   <div className="bg-indigo-50/50 p-4 rounded-2xl border-l-4 border-indigo-400 mb-4 shadow-inner">
@@ -186,25 +171,15 @@ const MarketingLeads: React.FC = () => {
                       {!searchLoading && foundLeads.length === 0 && !quotaError && !permissionError && (
                           <div className="h-64 flex flex-col items-center justify-center text-slate-400 italic">
                              <Search className="w-12 h-12 mb-4 opacity-10" />
-                             <p>Avvia una ricerca per popolare il radar.</p>
+                             <p>Inserisci settore e città per testare la ricerca.</p>
                           </div>
                       )}
                   </div>
                   <div className="space-y-6 h-full flex flex-col">
                       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex-1 flex flex-col">
-                          <div className="p-3 bg-slate-50 border-b flex items-center gap-2"><Map className="w-4 h-4 text-indigo-600"/><span className="text-xs font-bold text-slate-700 uppercase tracking-widest">Mappa Risultati</span></div>
+                          <div className="p-3 bg-slate-50 border-b flex items-center gap-2"><Map className="w-4 h-4 text-indigo-600"/><span className="text-xs font-bold text-slate-700 uppercase tracking-widest">Geolocalizzazione</span></div>
                           <div className="flex-1 bg-slate-100 relative">
-                              {foundLeads.length > 0 ? <iframe width="100%" height="100%" frameBorder="0" src={`https://maps.google.com/maps?q=${encodeURIComponent(searchTarget + ' ' + searchLocation)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}></iframe> : <div className="h-full flex items-center justify-center text-slate-300 italic text-xs text-center p-8">Mappa interattiva.</div>}
-                          </div>
-                      </div>
-                      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden h-40 flex flex-col">
-                          <div className="p-3 bg-slate-50 border-b flex items-center gap-2"><Link2 className="w-4 h-4 text-indigo-600"/><span className="text-xs font-bold text-slate-700 uppercase tracking-widest">Fonti Google</span></div>
-                          <div className="flex-1 p-4 overflow-y-auto space-y-2 bg-slate-50/30">
-                              {foundSources.length > 0 ? foundSources.map((source, i) => (
-                                  <div key={i} className="text-[10px] text-slate-500 bg-white border border-slate-200 p-2 rounded-lg flex items-center gap-2">
-                                      <span className="truncate flex-1">{source.web?.uri || source.maps?.uri}</span><ExternalLink className="w-3 h-3 text-slate-300"/>
-                                  </div>
-                              )) : <div className="h-full flex items-center justify-center text-slate-300 text-[10px] italic">Nessuna fonte.</div>}
+                              {foundLeads.length > 0 ? <iframe width="100%" height="100%" frameBorder="0" src={`https://maps.google.com/maps?q=${encodeURIComponent(searchTarget + ' ' + searchLocation)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}></iframe> : <div className="h-full flex items-center justify-center text-slate-300 italic text-xs text-center p-8">Mappa risultati.</div>}
                           </div>
                       </div>
                   </div>

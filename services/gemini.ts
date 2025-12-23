@@ -1,13 +1,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { RiskAnalysisResult, Car, DriverProfile, AIRecommendation, MarketingLead, CompanyProfile } from "../types";
 
-// Crea una nuova istanza ad ogni chiamata per usare la chiave API più recente dal dialogo window.aistudio
 const getAiClient = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 const textModelId = "gemini-3-flash-preview";
-// Modello obbligatorio per googleSearch con chiavi personali/paid
 const searchModelId = "gemini-3-pro-image-preview"; 
 
 const cleanJson = (text: string): string => {
@@ -21,19 +19,37 @@ const cleanJson = (text: string): string => {
   return cleaned;
 };
 
-export const findLeads = async (target: string, location: string): Promise<{leads: Partial<MarketingLead>[], sources: any[], error?: string, status?: number}> => {
+// Funzione per generare lead fittizi di alta qualità per il test (Simulation Mode)
+const getMockLeads = (target: string, location: string): Partial<MarketingLead>[] => {
+    const sectors: Record<string, string> = {
+        'dentisti': 'Studio Dentistico',
+        'hotel': 'Grand Hotel',
+        'ristorante': 'Trattoria',
+        'avvocati': 'Studio Legale',
+        'it': 'Tech Solutions',
+    };
+    const base = sectors[target.toLowerCase()] || target;
+    return [
+        { name: `${base} Rossi & Co.`, interest: `Necessità di 2 SUV per trasferte aziendali a ${location}.`, location: `Via Roma 15, ${location}`, email: `info@${target.replace(/\s/g, '')}rossi.it`, phone: '02 1234567' },
+        { name: `${base} Innovazione`, interest: `Flotta per dipendenti junior (utilitarie elettriche).`, location: `Viale Europa 8, ${location}`, email: `hr@innovazione-${target.replace(/\s/g, '')}.com`, phone: '06 9998887' },
+        { name: `Consulenza ${target.charAt(0).toUpperCase() + target.slice(1)}`, interest: `Noleggio a lungo termine per auto di rappresentanza.`, location: `Piazza Grande 1, ${location}`, email: `admin@consulenza.it`, phone: '081 555666' }
+    ];
+};
+
+export const findLeads = async (target: string, location: string, simulate: boolean = false): Promise<{leads: Partial<MarketingLead>[], sources: any[], error?: string, status?: number, isSimulated?: boolean}> => {
+    if (simulate) {
+        return { leads: getMockLeads(target, location), sources: [], isSimulated: true };
+    }
+
     const ai = getAiClient();
     const prompt = `Agisci come un esperto di lead generation. Cerca aziende REALI del settore "${target}" a "${location}". 
-    Restituisci ESCLUSIVAMENTE un oggetto JSON valido con questa struttura: 
-    {"leads": [{"name": "Nome Azienda", "interest": "Perché potrebbero noleggiare un auto", "location": "Indirizzo", "email": "email se trovata", "phone": "telefono"}]}.`;
+    Restituisci ESCLUSIVAMENTE un oggetto JSON: {"leads": [{"name": "...", "interest": "...", "location": "...", "email": "...", "phone": "..."}]}.`;
 
     try {
         const response = await ai.models.generateContent({
             model: searchModelId,
             contents: prompt,
-            config: { 
-                tools: [{googleSearch: {}}],
-            }
+            config: { tools: [{googleSearch: {}}] }
         });
         
         const rawText = response.text || "";
@@ -41,21 +57,13 @@ export const findLeads = async (target: string, location: string): Promise<{lead
         const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
         return { leads: data.leads || [], sources };
     } catch (e: any) {
-        console.error("Errore findLeads:", e);
         const msg = e.message || "";
-        
         if (msg.includes("403") || msg.includes("PERMISSION_DENIED")) {
             return { leads: [], sources: [], error: "PERMISSION_DENIED", status: 403 };
         }
-        
         if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED")) {
             return { leads: [], sources: [], error: "QUOTA_EXCEEDED", status: 429 };
         }
-
-        if (msg.includes("Requested entity was not found")) {
-            return { leads: [], sources: [], error: "INVALID_KEY", status: 404 };
-        }
-
         return { leads: [], sources: [], error: msg };
     }
 }
@@ -92,22 +100,15 @@ export const generateMarketingCopy = async (
   companyProfile?: CompanyProfile
 ): Promise<string> => {
   const ai = getAiClient();
-  const offersText = offers.map(c => 
-    `VEICOLO: ${c.brand} ${c.model}\nDETTAGLI: ${c.fuelType}, ${c.transmission}\nDESCRIZIONE: ${c.description}`
-  ).join('\n---\n');
-  
-  const prompt = `Scrivi un'email commerciale persuasiva da parte di ${companyProfile?.name || 'RentSync'}. Destinatario: ${leadName}. Interesse: ${interest}. Tono: ${tone}. Offerte:\n${offersText}`;
-
+  const offersText = offers.map(c => `VEICOLO: ${c.brand} ${c.model}\nDETTAGLI: ${c.fuelType}, ${c.transmission}`).join('\n---\n');
+  const prompt = `Scrivi un'email commerciale persuasiva da ${companyProfile?.name || 'RentSync'}. Destinatario: ${leadName}. Interesse: ${interest}. Tono: ${tone}. Offerte:\n${offersText}`;
   const response = await ai.models.generateContent({ model: textModelId, contents: prompt });
   return response.text || "";
 };
 
 export const generateQuoteDetails = async (carModel: string, duration: number, clientType: string): Promise<string> => {
     const ai = getAiClient();
-    const response = await ai.models.generateContent({
-        model: textModelId,
-        contents: `Nota per preventivo ${carModel}, ${duration} giorni, cliente ${clientType}.`,
-    });
+    const response = await ai.models.generateContent({ model: textModelId, contents: `Nota per preventivo ${carModel}, ${duration} giorni, cliente ${clientType}.` });
     return response.text || "";
 }
 
@@ -149,18 +150,12 @@ export const generateCarDetails = async (brand: string, model: string, year?: nu
 
 export const generateStrategicReport = async (stats: any): Promise<string> => {
     const ai = getAiClient();
-    const response = await ai.models.generateContent({
-        model: textModelId,
-        contents: `Report strategico: ${JSON.stringify(stats)}`,
-    });
+    const response = await ai.models.generateContent({ model: textModelId, contents: `Report strategico: ${JSON.stringify(stats)}` });
     return response.text || "";
 }
 
 export const generateCompanyBio = async (info: Partial<CompanyProfile>): Promise<string> => {
     const ai = getAiClient();
-    const response = await ai.models.generateContent({
-        model: textModelId,
-        contents: `Bio professionale per ${info.name}.`,
-    });
+    const response = await ai.models.generateContent({ model: textModelId, contents: `Bio professionale per ${info.name}.` });
     return response.text || "";
 }
