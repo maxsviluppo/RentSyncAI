@@ -36,37 +36,44 @@ export const generateMarketingCopy = async (
   companyProfile?: CompanyProfile
 ): Promise<string> => {
   const ai = getAiClient();
-  const offersText = offers.map(c => `- ${c.brand} ${c.model} (${c.fuelType}, ${c.transmission})`).join('\n');
+  const offersText = offers.map(c => 
+    `VEICOLO: ${c.brand} ${c.model}\nCATEGORIA: ${c.category}\nDETTAGLI: ${c.fuelType}, ${c.transmission}, ${c.features?.join(', ')}\nDESCRIZIONE: ${c.description}`
+  ).join('\n---\n');
   
   const prompt = `
-    Scrivi un'email commerciale professionale da parte di ${companyProfile?.name || 'RentSync'}.
-    Destinatario: ${leadName}
-    Motivo del contatto: ${interest}
-    Tono: ${tone}
+    Scrivi un'email commerciale persuasiva da parte di ${companyProfile?.name || 'RentSync'}.
     
-    DEVI INCLUDERE E DESCRIVERE QUESTI VEICOLI SPECIFICI:
+    DESTINATARIO: ${leadName}
+    MOTIVO CONTATTO (Perché l'IA ha suggerito questo cliente): "${interest}"
+    TONO RICHIESTO: ${tone}
+    
+    PROPOSTA VEICOLI (Personalizza la descrizione basandoti su questi dati):
     ${offersText}
     
-    Spiega perché questi modelli sono perfetti per le esigenze indicate nell'interesse del cliente.
+    REGOLE:
+    1. Inizia con un riferimento personalizzato alla loro attività/bisogno (basato sul campo MOTIVO CONTATTO).
+    2. Descrivi come le caratteristiche specifiche delle auto proposte risolvono i loro problemi.
+    3. Concludi con una Call To Action chiara verso ${companyProfile?.website || 'il nostro sito'}.
   `;
 
   const response = await ai.models.generateContent({ model: modelId, contents: prompt });
   return response.text || "";
 };
 
-export const findLeads = async (target: string, location: string): Promise<Partial<MarketingLead>[]> => {
+export const findLeads = async (target: string, location: string): Promise<{leads: Partial<MarketingLead>[], sources: any[]}> => {
     const ai = getAiClient();
     const prompt = `
-      Cerca su Google aziende REALI del settore "${target}" a "${location}".
+      Cerca su Google aziende REALI del settore specifico "${target}" a "${location}".
       
-      REGOLE DI FILTRO TASSATIVE:
-      1. Se il target è "${target}", SCARTA ogni azienda che appartiene ad altri settori (es. se cerchi medici, ignora edili).
-      2. Per ogni azienda valida, scrivi nel campo "interest" una MOTIVAZIONE specifica del perché dovrebbero noleggiare un'auto (es. "Necessità di berline per visite domiciliari").
+      LOGICA DI FILTRO ULTRA-STRETTA:
+      1. Se l'azienda trovata NON appartiene chiaramente al settore "${target}", ignorala totalmente.
+      2. Per ogni azienda valida, analizza il loro profilo web e scrivi nel campo "interest" una MOTIVAZIONE LOGICA del perché il noleggio a lungo termine (flotta) sia vantaggioso per loro (es. "Necessità di berline di lusso per il trasporto dei partner dello studio" o "Risparmio fiscale su flotta ibrida per consegne urbane").
+      3. Cerca di includere email e telefono se visibili.
       
       Restituisci ESCLUSIVAMENTE un JSON:
       {
         "leads": [
-          { "name": "Nome", "interest": "Motivazione noleggio", "location": "Indirizzo", "email": "email", "phone": "tel" }
+          { "name": "Nome", "interest": "Motivazione strategica", "location": "Indirizzo", "email": "email", "phone": "tel" }
         ]
       }
     `;
@@ -81,10 +88,11 @@ export const findLeads = async (target: string, location: string): Promise<Parti
             }
         });
         const data = JSON.parse(cleanJson(response.text || '{"leads":[]}'));
-        return data.leads || [];
+        const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        return { leads: data.leads || [], sources };
     } catch (e) {
         console.error("Errore findLeads:", e);
-        return [];
+        return { leads: [], sources: [] };
     }
 }
 
@@ -92,7 +100,7 @@ export const generateQuoteDetails = async (carModel: string, duration: number, c
     const ai = getAiClient();
     const response = await ai.models.generateContent({
         model: modelId,
-        contents: `Descrizione breve per preventivo noleggio ${carModel} per ${duration} giorni, cliente ${clientType}. Solo testo semplice.`
+        contents: `Scrivi una breve nota di accompagnamento professionale per un preventivo di noleggio ${carModel} della durata di ${duration} giorni per un cliente di tipo ${clientType}. Elenca 3 vantaggi del nostro servizio.`,
     });
     return response.text || "";
 }
@@ -112,7 +120,7 @@ export const generateCarDetails = async (brand: string, model: string, year?: nu
     const ai = getAiClient();
     const response = await ai.models.generateContent({
         model: modelId,
-        contents: `Dettagli tecnici JSON per ${brand} ${model} ${year}.`,
+        contents: `Genera i dettagli tecnici (features, descrizione commerciale) in JSON per un'auto ${brand} ${model} dell'anno ${year}.`,
         config: { responseMimeType: "application/json" }
     });
     return JSON.parse(cleanJson(response.text || "{}"));
@@ -122,7 +130,7 @@ export const generateStrategicReport = async (stats: any): Promise<string> => {
     const ai = getAiClient();
     const response = await ai.models.generateContent({
         model: modelId,
-        contents: `Analisi strategica: ${JSON.stringify(stats)}`,
+        contents: `Analisi strategica basata su questi dati: ${JSON.stringify(stats)}. Suggerisci azioni concrete per aumentare il fatturato.`,
     });
     return response.text || "";
 }
@@ -131,7 +139,7 @@ export const generateCompanyBio = async (info: Partial<CompanyProfile>): Promise
     const ai = getAiClient();
     const response = await ai.models.generateContent({
         model: modelId,
-        contents: `Bio per ${info.name}.`,
+        contents: `Scrivi una bio aziendale professionale per ${info.name}, con sede a ${info.city}.`,
     });
     return response.text || "";
 }
