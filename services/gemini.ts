@@ -1,25 +1,90 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { RiskAnalysisResult, Car, DriverProfile, AIRecommendation, MarketingLead, CompanyProfile } from "../types";
 
-// Always create a new instance right before the call to ensure the latest API key is used
+// Crea una nuova istanza ad ogni chiamata per usare la chiave API più recente dal dialogo window.aistudio
 const getAiClient = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
-const modelId = "gemini-3-flash-preview";
+const textModelId = "gemini-3-flash-preview";
+const proModelId = "gemini-3-pro-preview"; // Modello pro per compiti complessi di ricerca
 
 const cleanJson = (text: string): string => {
   if (!text) return "{}";
-  return text.replace(/```json/g, '').replace(/```/g, '').trim();
+  // Rimuove markdown e cerca di estrarre solo il contenuto tra parentesi se presente
+  let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  const jsonStart = cleaned.indexOf('{');
+  const jsonEnd = cleaned.lastIndexOf('}');
+  if (jsonStart !== -1 && jsonEnd !== -1) {
+      cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+  }
+  return cleaned;
 };
+
+export const findLeads = async (target: string, location: string): Promise<{leads: Partial<MarketingLead>[], sources: any[], error?: string, status?: number}> => {
+    const ai = getAiClient();
+    const prompt = `Agisci come un esperto di lead generation. Cerca aziende REALI del settore "${target}" a "${location}". 
+    Restituisci ESCLUSIVAMENTE un oggetto JSON valido con questa struttura: 
+    {"leads": [{"name": "Nome Azienda", "interest": "Perché potrebbero noleggiare un auto", "location": "Indirizzo", "email": "email se trovata", "phone": "telefono"}]}.
+    Non aggiungere commenti o testo extra prima o dopo il JSON.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: proModelId,
+            contents: prompt,
+            config: { 
+                tools: [{googleSearch: {}}],
+                // Nota: non usiamo responseMimeType qui perché il grounding di ricerca può interferire
+            }
+        });
+        
+        const rawText = response.text || "";
+        const data = JSON.parse(cleanJson(rawText));
+        const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        return { leads: data.leads || [], sources };
+    } catch (e: any) {
+        console.error("Errore findLeads dettagliato:", e);
+        const msg = e.message || "";
+        
+        // Gestione Permission Denied (403)
+        if (msg.includes("403") || msg.includes("permission") || msg.includes("PERMISSION_DENIED")) {
+            return { leads: [], sources: [], error: "PERMISSION_DENIED", status: 403 };
+        }
+        
+        // Gestione Quota Exceeded (429)
+        if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED")) {
+            return { leads: [], sources: [], error: "QUOTA_EXCEEDED", status: 429 };
+        }
+
+        // Gestione Chiave non valida / Progetto non trovato
+        if (msg.includes("Requested entity was not found")) {
+            return { leads: [], sources: [], error: "INVALID_KEY", status: 404 };
+        }
+
+        return { leads: [], sources: [], error: msg };
+    }
+}
 
 export const analyzeRisk = async (clientData: any, financialData: string): Promise<RiskAnalysisResult> => {
   const ai = getAiClient();
   const prompt = `Analizza rischio per: ${JSON.stringify(clientData)}. Dati: ${financialData}`;
   const response = await ai.models.generateContent({
-    model: modelId,
+    model: textModelId,
     contents: prompt,
-    config: { responseMimeType: "application/json" },
+    config: { 
+        responseMimeType: "application/json",
+        responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+                riskScore: { type: Type.INTEGER },
+                riskLevel: { type: Type.STRING },
+                maxCreditLimit: { type: Type.NUMBER },
+                reasoning: { type: Type.STRING },
+                recommendation: { type: Type.STRING }
+            },
+            required: ["riskScore", "riskLevel", "maxCreditLimit", "reasoning", "recommendation"]
+        }
+    },
   });
   return JSON.parse(cleanJson(response.text || "{}"));
 };
@@ -33,72 +98,46 @@ export const generateMarketingCopy = async (
 ): Promise<string> => {
   const ai = getAiClient();
   const offersText = offers.map(c => 
-    `VEICOLO: ${c.brand} ${c.model}\nCATEGORIA: ${c.category}\nDETTAGLI: ${c.fuelType}, ${c.transmission}, ${c.features?.join(', ')}\nDESCRIZIONE: ${c.description}`
+    `VEICOLO: ${c.brand} ${c.model}\nDETTAGLI: ${c.fuelType}, ${c.transmission}\nDESCRIZIONE: ${c.description}`
   ).join('\n---\n');
   
-  const prompt = `
-    Scrivi un'email commerciale persuasiva da parte di ${companyProfile?.name || 'RentSync'}.
-    DESTINATARIO: ${leadName}
-    MOTIVO CONTATTO: "${interest}"
-    TONO RICHIESTO: ${tone}
-    PROPOSTA VEICOLI:
-    ${offersText}
-  `;
+  const prompt = `Scrivi un'email commerciale persuasiva da parte di ${companyProfile?.name || 'RentSync'}. Destinatario: ${leadName}. Interesse: ${interest}. Tono: ${tone}. Offerte:\n${offersText}`;
 
-  const response = await ai.models.generateContent({ model: modelId, contents: prompt });
+  const response = await ai.models.generateContent({ model: textModelId, contents: prompt });
   return response.text || "";
 };
-
-export const findLeads = async (target: string, location: string): Promise<{leads: Partial<MarketingLead>[], sources: any[], error?: string}> => {
-    const ai = getAiClient();
-    const prompt = `
-      Cerca su Google aziende REALI del settore specifico "${target}" a "${location}".
-      Regole: Filtra rigorosamente per settore. Scrivi una motivazione strategica per il noleggio.
-      Restituisci ESCLUSIVAMENTE un JSON:
-      {
-        "leads": [
-          { "name": "Nome", "interest": "Motivazione", "location": "Indirizzo", "email": "email", "phone": "tel" }
-        ]
-      }
-    `;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: modelId,
-            contents: prompt,
-            config: { 
-                tools: [{googleSearch: {}}],
-                responseMimeType: "application/json"
-            }
-        });
-        const data = JSON.parse(cleanJson(response.text || '{"leads":[]}'));
-        const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-        return { leads: data.leads || [], sources };
-    } catch (e: any) {
-        console.error("Errore findLeads:", e);
-        if (e.message?.includes("429") || e.message?.includes("RESOURCE_EXHAUSTED")) {
-            return { leads: [], sources: [], error: "QUOTA_EXCEEDED" };
-        }
-        return { leads: [], sources: [], error: e.message };
-    }
-}
 
 export const generateQuoteDetails = async (carModel: string, duration: number, clientType: string): Promise<string> => {
     const ai = getAiClient();
     const response = await ai.models.generateContent({
-        model: modelId,
-        contents: `Scrivi una breve nota di accompagnamento professionale per un preventivo di noleggio ${carModel} della durata di ${duration} giorni per un cliente di tipo ${clientType}. Elenca 3 vantaggi del nostro servizio.`,
+        model: textModelId,
+        contents: `Nota per preventivo ${carModel}, ${duration} giorni, cliente ${clientType}.`,
     });
     return response.text || "";
 }
 
 export const recommendCar = async (fleet: Car[], profile: DriverProfile): Promise<AIRecommendation[]> => {
   const ai = getAiClient();
-  const prompt = `Consiglia auto dalla flotta: ${JSON.stringify(fleet)} per il profilo: ${JSON.stringify(profile)}`;
+  const prompt = `Consiglia auto: ${JSON.stringify(fleet)} per profilo: ${JSON.stringify(profile)}`;
   const response = await ai.models.generateContent({
-    model: modelId,
+    model: textModelId,
     contents: prompt,
-    config: { responseMimeType: "application/json" }
+    config: { 
+        responseMimeType: "application/json",
+        responseSchema: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    carId: { type: Type.STRING },
+                    matchScore: { type: Type.INTEGER },
+                    reasoning: { type: Type.STRING },
+                    suggestedMonthlyRate: { type: Type.NUMBER },
+                    suggestedDurationMonths: { type: Type.INTEGER }
+                }
+            }
+        }
+    }
   });
   return JSON.parse(cleanJson(response.text || "[]"));
 };
@@ -106,8 +145,8 @@ export const recommendCar = async (fleet: Car[], profile: DriverProfile): Promis
 export const generateCarDetails = async (brand: string, model: string, year?: number): Promise<Partial<Car>> => {
     const ai = getAiClient();
     const response = await ai.models.generateContent({
-        model: modelId,
-        contents: `Genera i dettagli tecnici (features, descrizione commerciale) in JSON per un'auto ${brand} ${model} dell'anno ${year}.`,
+        model: textModelId,
+        contents: `Dettagli tecnici JSON per ${brand} ${model} ${year}.`,
         config: { responseMimeType: "application/json" }
     });
     return JSON.parse(cleanJson(response.text || "{}"));
@@ -116,8 +155,8 @@ export const generateCarDetails = async (brand: string, model: string, year?: nu
 export const generateStrategicReport = async (stats: any): Promise<string> => {
     const ai = getAiClient();
     const response = await ai.models.generateContent({
-        model: modelId,
-        contents: `Analisi strategica basata su questi dati: ${JSON.stringify(stats)}. Suggerisci azioni concrete per aumentare il fatturato.`,
+        model: textModelId,
+        contents: `Report strategico: ${JSON.stringify(stats)}`,
     });
     return response.text || "";
 }
@@ -125,8 +164,8 @@ export const generateStrategicReport = async (stats: any): Promise<string> => {
 export const generateCompanyBio = async (info: Partial<CompanyProfile>): Promise<string> => {
     const ai = getAiClient();
     const response = await ai.models.generateContent({
-        model: modelId,
-        contents: `Scrivi una bio aziendale professionale per ${info.name}, con sede a ${info.city}.`,
+        model: textModelId,
+        contents: `Bio professionale per ${info.name}.`,
     });
     return response.text || "";
 }
