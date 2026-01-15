@@ -21,29 +21,44 @@ const cleanJson = (text: string): string => {
   return cleaned;
 };
 
-// Generatore di lead simulati per test senza chiave Paid
-const getMockLeads = (target: string, location: string): Partial<MarketingLead>[] => {
-    const baseNames = ["Studio", "Azienda", "Group", "Consulting", "Impresa"];
-    return [0, 1, 2].map(i => ({
-        name: `${baseNames[i]} ${target} ${location}`,
-        company: `${baseNames[i]} ${target} Associati`,
-        interest: `Potenziale bisogno di noleggio a lungo termine per flotta agenti operanti nel settore ${target}.`,
-        location: `Indirizzo simulato ${i+1}, ${location}`,
-        email: `contatto${i}@esempio-${target.toLowerCase().replace(/\s/g, '')}.it`,
-        phone: `+39 0${i}${i} 1234567`
-    }));
-};
-
 export const findLeads = async (target: string, location: string, simulate: boolean = false): Promise<{leads: Partial<MarketingLead>[], sources: any[], error?: string, status?: number, isSimulated?: boolean}> => {
+    const ai = getAiClient();
+
+    // MODALITÀ SIMULAZIONE (Usa Gemini Flash - Free & Fast)
     if (simulate) {
-        return { leads: getMockLeads(target, location), sources: [], isSimulated: true };
+        const simPrompt = `Sei un simulatore di dati per test software. 
+        Genera 3 profili di aziende FITTIZIE ma realistiche per il settore "${target}" a "${location}".
+        Per ogni azienda inventa:
+        1. Nome credibile.
+        2. Indirizzo locale verosimile.
+        3. Interest: un bisogno specifico di noleggio auto (es. "Flotta per agenti", "Furgone per consegne", "Auto di lusso per dirigenti").
+        4. Email e Telefono finti.
+        
+        Restituisci SOLO un JSON valido: {"leads": [{"name": "...", "interest": "...", "location": "...", "email": "...", "phone": "..."}]}`;
+        
+        try {
+            const response = await ai.models.generateContent({
+                model: textModelId, // Usa Flash per la simulazione gratuita
+                contents: simPrompt,
+                config: { responseMimeType: "application/json" }
+            });
+            const data = JSON.parse(cleanJson(response.text || "{}"));
+            return { leads: data.leads || [], sources: [], isSimulated: true };
+        } catch (e) {
+            console.error("Errore simulazione:", e);
+            // Fallback statico estremo se anche Flash fallisce
+            return { 
+                leads: [{ name: `Simulazione ${target}`, interest: "Test Bisogno Mobilità", location: location, email: "test@demo.com", phone: "000000000" }], 
+                sources: [], 
+                isSimulated: true 
+            };
+        }
     }
 
-    const ai = getAiClient();
-    // Prompt rinforzato per ottenere JSON pulito anche senza responseMimeType
+    // MODALITÀ REALE (Usa Google Search Grounding - Richiede Tier Paid)
     const prompt = `Agisci come un esperto di lead generation commerciale. 
     Cerca aziende REALI e ATTIVE del settore "${target}" a "${location}" utilizzando Google Search.
-    Per ogni azienda trovata, identifica il nome, l'indirizzo, e ipotizza il loro interesse per il noleggio auto.
+    Per ogni azienda trovata, identifica il nome, l'indirizzo, e ipotizza il loro interesse per il noleggio auto basandoti sulla loro attività.
     Restituisci i dati ESCLUSIVAMENTE come un oggetto JSON con questa struttura: 
     {"leads": [{"name": "Nome", "interest": "Dettaglio bisogno", "location": "Indirizzo", "email": "...", "phone": "..."}]}.
     Non aggiungere chiacchiere o altro testo fuori dal JSON.`;
@@ -54,7 +69,7 @@ export const findLeads = async (target: string, location: string, simulate: bool
             contents: prompt,
             config: { 
                 tools: [{googleSearch: {}}],
-                // Nota: responseMimeType: "application/json" NON è usato qui per permettere il Grounding
+                // responseMimeType rimosso per compatibilità Grounding
             }
         });
         
@@ -65,11 +80,9 @@ export const findLeads = async (target: string, location: string, simulate: bool
     } catch (e: any) {
         console.error("Errore findLeads:", e);
         const msg = e.message || "";
-        // Gestione specifica Errore 403 (Permesso Negato per Google Search)
         if (msg.includes("403") || msg.includes("PERMISSION_DENIED")) {
             return { leads: [], sources: [], error: "PERMISSION_DENIED", status: 403 };
         }
-        // Gestione specifica Errore 429 (Quota esaurita)
         if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED")) {
             return { leads: [], sources: [], error: "QUOTA_EXCEEDED", status: 429 };
         }
