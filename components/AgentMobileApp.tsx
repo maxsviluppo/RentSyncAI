@@ -357,11 +357,12 @@ const AgentMobileApp: React.FC = () => {
           {/* Dynamic Island */}
           <div className="absolute top-3 left-1/2 -translate-x-1/2 w-[120px] h-[35px] bg-black rounded-full z-20"></div>
 
-          <div className="w-24 h-24 bg-white/10 rounded-3xl flex items-center justify-center backdrop-blur-md mb-8 shadow-inner ring-1 ring-white/20">
-            <Smartphone className="w-10 h-10 text-white" />
+          {/* Logo Area */}
+          <div className="w-24 h-24 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl flex items-center justify-center mb-8 shadow-lg shadow-indigo-900/50 ring-1 ring-white/10">
+            <CarIcon className="w-12 h-12 text-white" />
           </div>
 
-          <h2 className="text-3xl font-bold mb-2 tracking-tight">Agent<span className="text-indigo-400">Pro</span></h2>
+          <h2 className="text-3xl font-bold mb-2 tracking-tight">RentSync<span className="text-indigo-400">Pro</span></h2>
           <p className="text-indigo-200/60 mb-10 text-center px-8 text-sm">Inserisci il tuo nickname aziendale per accedere al terminale mobile.</p>
 
           <div className="w-full px-8 space-y-4">
@@ -421,7 +422,7 @@ const AgentMobileApp: React.FC = () => {
         {/* Header */}
         <div className="bg-white px-5 pb-4 flex justify-between items-center z-10 sticky top-0">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Agent<span className="text-indigo-600">Pro</span></h1>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">RentSync<span className="text-indigo-600">Pro</span></h1>
             <p className="text-xs text-slate-400">Ciao, {currentAgent.name.split(' ')[0]}</p>
           </div>
           <div className="w-10 h-10 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-700 font-bold">

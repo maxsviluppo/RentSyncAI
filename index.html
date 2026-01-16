@@ -1,30 +1,42 @@
 <!DOCTYPE html>
 <html lang="it">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AutoRent AI Manager</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-      /* Custom scrollbar for webkit */
-      ::-webkit-scrollbar {
-        width: 8px;
-        height: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #f1f5f9;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-      }
-    </style>
-  </head>
-  <body class="bg-gray-50 text-slate-900 antialiased font-sans">
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RentSync AI</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom scrollbar for webkit */
+    ::-webkit-scrollbar {
+      width: 6px;
+      /* Più sottile */
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      /* No arrows implied by lack of ::alert-button pseudo elements and simple track */
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #4f46e5;
+      /* Blu indaco del logo */
+      border-radius: 99px;
+      /* Arrotondato */
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3730a3;
+      /* Blu scuro hover */
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 text-slate-900 antialiased font-sans">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
 </html>

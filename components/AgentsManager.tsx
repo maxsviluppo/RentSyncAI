@@ -372,7 +372,7 @@ const AgentsManager: React.FC = () => {
                                                     }}
                                                     className="flex-1 md:flex-none bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-md shadow-indigo-200 active:scale-95 transition-all text-sm whitespace-nowrap"
                                                 >
-                                                    Copia Link Accesso
+                                                    Copia Link Rentsync Pro
                                                 </button>
                                             </div>
                                         </div>
