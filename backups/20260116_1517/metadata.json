@@ -1,0 +1,5 @@
+{
+  "name": "RentSync AI",
+  "description": "Piattaforma gestionale completa per agenzie di noleggio auto, integrata con Gemini AI per valutazione rischi, generazione preventivi e marketing.",
+  "requestFramePermissions": []
+}

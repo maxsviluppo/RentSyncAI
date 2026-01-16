@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { generateMarketingCopy, findLeads, generateMarketingABTest, askGeminiFlash, findStrategicLeads } from '../services/gemini';
+import { generateMarketingCopy, findLeads, generateMarketingABTest, askGeminiFlash } from '../services/gemini';
 import { useApp } from '../contexts/AppContext';
 import { MarketingLead } from '../types';
 import { Mail, MessageSquare, Loader2, UserPlus, Search, Globe, Plus, Sparkles, MapPin, Upload, X, FileText, Database, FlaskConical, MousePointerClick } from 'lucide-react';
 
 const MarketingLeads: React.FC = () => {
   const { leads, addLead } = useApp();
-  const [activeTab, setActiveTab] = useState<'list' | 'search' | 'strategy'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'search' | 'lab'>('list');
 
   // AI Lab State
   const [labPrompt, setLabPrompt] = useState('');
@@ -176,10 +176,10 @@ const MarketingLeads: React.FC = () => {
             <Globe className="w-4 h-4" /> Ricerca Google AI
           </button>
           <button
-            onClick={() => setActiveTab('strategy')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'strategy' ? 'bg-emerald-600 text-white' : 'bg-white text-emerald-600 border border-emerald-200'}`}
+            onClick={() => setActiveTab('lab')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'lab' ? 'bg-purple-600 text-white' : 'bg-white text-purple-600 border border-purple-200'}`}
           >
-            <Sparkles className="w-4 h-4" /> Lead Sniper (AI Strategy)
+            <FlaskConical className="w-4 h-4" /> AI Lab (Test)
           </button>
         </div>
       </div>
@@ -362,7 +362,7 @@ const MarketingLeads: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'strategy' && <StrategicLeadsTab />}
+      {activeTab === 'lab' && <AiLabTab />}
 
       {activeTab === 'search' && (
         <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
@@ -516,192 +516,75 @@ const MarketingLeads: React.FC = () => {
   );
 };
 
-// --- STRATEGIC LEADS COMPONENT ---
-const StrategicLeadsTab = () => {
-  const { addLead } = useApp();
-  const [sector, setSector] = useState('');
-  const [location, setLocation] = useState('');
-  const [size, setSize] = useState('');
-  const [goal, setGoal] = useState('Noleggio Lungo Termine');
-  const [results, setResults] = useState<{ leads: Partial<MarketingLead>[], strategy: string } | null>(null);
+// --- AI LAB COMPONENT (INLINE) ---
+const AiLabTab = () => {
+  const [prompt, setPrompt] = useState('');
+  const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleStrategicSearch = async () => {
-    if (!sector || !location) return;
+  // We need a way to call generic AI. 
+  // Since we are inside the component, let's use a specialized function from services (to be added).
+  const { askGeminiFlash } = require('../services/gemini'); // Dynamic import workaround or assume it's there? 
+  // Typescript will complain. Let's just use `any` for now or assume we'll fix imports.
+  // Better: We will modify imports at top of file.
+
+  const runTest = async () => {
+    if (!prompt) return;
     setLoading(true);
-    setResults(null);
     try {
-      const res = await findStrategicLeads(sector, location, size, goal);
-      setResults(res);
+      // We will use generateMarketingCopy as a "proxy" if askGeminiFlash isn't ready,
+      // OR better, we simply define the UI here and implement the logic when we update the service.
+      // For now, let's just make it call the service.
+      const res = await askGeminiFlash(prompt);
+      setResponse(res);
     } catch (e) {
-      console.error(e);
-      alert("Errore nella ricerca strategica.");
+      setResponse("Errore connessione AI.");
     } finally {
       setLoading(false);
     }
   };
 
-  const importLead = (lead: Partial<MarketingLead>) => {
-    addLead({
-      id: Date.now().toString() + Math.random(),
-      name: lead.name || 'Azienda Target',
-      company: lead.company || lead.name || 'Azienda',
-      interest: lead.interest || 'Lead Strategico',
-      status: 'New',
-      source: 'AI_Search',
-      location: lead.location || location
-    });
-    alert(`Lead ${lead.name} importato nel CRM!`);
-  };
-
   return (
-    <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col lg:flex-row overflow-hidden">
-      {/* Configuration Panel */}
-      <div className="w-full lg:w-1/3 bg-slate-50 p-6 border-r border-slate-100 flex flex-col gap-6">
-        <div>
-          <h3 className="text-xl font-bold text-emerald-900 flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-emerald-600" /> Lead Sniper
-          </h3>
-          <p className="text-sm text-slate-500 mt-2">
-            L'AI analizza il territorio e trova aziende reali con alta probabilità di conversione per la tua offerta.
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs font-bold text-slate-500 uppercase">Settore Target</label>
-            <input
-              type="text"
-              placeholder="es. Logistica, Edilizia, Installatori"
-              className="w-full p-3 border rounded-xl mt-1 focus:ring-2 focus:ring-emerald-500 outline-none"
-              value={sector}
-              onChange={e => setSector(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-slate-500 uppercase">Zona Operativa</label>
-            <input
-              type="text"
-              placeholder="es. Provincia di Milano"
-              className="w-full p-3 border rounded-xl mt-1 focus:ring-2 focus:ring-emerald-500 outline-none"
-              value={location}
-              onChange={e => setLocation(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="text-xs font-bold text-slate-500 uppercase">Dimensione Azienda</label>
-            <select
-              className="w-full p-3 border rounded-xl mt-1 bg-white"
-              value={size}
-              onChange={e => setSize(e.target.value)}
-            >
-              <option value="">Qualsiasi Dimensione</option>
-              <option value="Piccola (1-10 dipendenti)">Piccola (1-10 dipendenti)</option>
-              <option value="Media (10-50 dipendenti)">Media (10-50 dipendenti)</option>
-              <option value="Grande (>50 dipendenti)">Grande (&gt;50 dipendenti)</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-bold text-slate-500 uppercase">Obiettivo Offerta</label>
-            <select
-              className="w-full p-3 border rounded-xl mt-1 bg-white"
-              value={goal}
-              onChange={e => setGoal(e.target.value)}
-            >
-              <option value="Noleggio Lungo Termine">Noleggio Lungo Termine</option>
-              <option value="Noleggio Furgoni/Veicoli Commerciali">Flotta Furgoni / Commerciali</option>
-              <option value="Noleggio Breve Termine">Noleggio Breve Termine</option>
-              <option value="Auto di Lusso / Rappresentanza">Auto di Lusso / Rappresentanza</option>
-            </select>
-          </div>
-
-          <button
-            onClick={handleStrategicSearch}
-            disabled={loading || !sector || !location}
-            className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2 mt-4"
-          >
-            {loading ? <Loader2 className="animate-spin" /> : <Search className="w-5 h-5" />}
-            Analizza e Trova Target
-          </button>
-        </div>
+    <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex flex-col">
+      <div className="mb-6">
+        <h3 className="text-xl font-bold text-purple-900 flex items-center gap-2"><Sparkles className="w-6 h-6" /> Gemini Flash 2.0 Playground</h3>
+        <p className="text-slate-500">
+          Area test gratuita per sperimentare la velocità e le capacità del modello Gemini Flash.
+          Chiedi di generare idee marketing, analizzare testi o creare script di vendita.
+        </p>
       </div>
 
-      {/* Results Panel */}
-      <div className="flex-1 p-6 overflow-y-auto bg-white relative">
-        {!results && !loading && (
-          <div className="flex flex-col items-center justify-center h-full text-slate-300">
-            <Globe className="w-24 h-24 mb-4 opacity-10" />
-            <p className="font-medium text-slate-400">Configura la strategia a sinistra per iniziare.</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
+        <div className="flex flex-col gap-4">
+          <textarea
+            className="flex-1 p-4 border border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-purple-500 outline-none text-slate-700 font-medium"
+            placeholder="Es. 'Scrivi 3 slogan divertenti per un noleggio di furgoni' oppure 'Dammi una lista di hashtag per Instagram per una promo weekend'..."
+            value={prompt}
+            onChange={e => setPrompt(e.target.value)}
+          />
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setPrompt("Scrivi un post LinkedIn per promuovere il noleggio della Tesla Model 3.")} className="text-xs bg-slate-100 hover:bg-slate-200 px-3 py-1 rounded-full text-slate-600">Post Tesla</button>
+            <button onClick={() => setPrompt("Analizza il sentiment di questa recensione: 'Servizio pessimo, auto sporca e in ritardo!'")} className="text-xs bg-slate-100 hover:bg-slate-200 px-3 py-1 rounded-full text-slate-600">Analisi Sentiment</button>
           </div>
-        )}
+          <button
+            onClick={runTest}
+            disabled={loading || !prompt}
+            className="bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 shadow-lg shadow-purple-200 flex items-center justify-center gap-2"
+          >
+            {loading ? <Loader2 className="animate-spin text-white" /> : <FlaskConical className="w-5 h-5" />}
+            Esegui Test AI
+          </button>
+        </div>
 
-        {loading && (
-          <div className="flex flex-col items-center justify-center h-full">
-            <div className="relative">
-              <div className="w-16 h-16 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-emerald-600 animate-pulse" />
-              </div>
-            </div>
-            <p className="mt-4 text-emerald-800 font-medium animate-pulse">Analisi del territorio in corso...</p>
-            <p className="text-xs text-emerald-600/60 mt-2">Sto identificando le aziende migliori su Google Maps</p>
+        <div className="bg-slate-900 rounded-xl p-6 overflow-y-auto font-mono text-sm text-green-400 relative">
+          <div className="absolute top-0 left-0 w-full bg-slate-800 text-slate-400 text-xs px-4 py-1 flex justify-between">
+            <span>OUTPUT TERMINAL</span>
+            <span>MODEL: gemini-2.0-flash-exp</span>
           </div>
-        )}
-
-        {results && !loading && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
-
-            {/* Strategy Insight Card */}
-            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Sparkles className="w-32 h-32 text-emerald-600" />
-              </div>
-              <h4 className="font-bold text-emerald-900 text-lg mb-2 flex items-center gap-2">
-                <Sparkles className="w-5 h-5" /> Analisi Strategica AI
-              </h4>
-              <p className="text-emerald-800 leading-relaxed relative z-10">
-                {results.strategy}
-              </p>
-            </div>
-
-            {/* Leads Grid */}
-            <div>
-              <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-slate-500" />
-                Top 5 Aziende Target Identificate
-              </h4>
-              <div className="grid grid-cols-1 gap-4">
-                {results.leads.map((lead, idx) => (
-                  <div key={idx} className="bg-white border border-slate-200 rounded-xl p-5 hover:shadow-md transition-all flex justify-between items-center group">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1">
-                        <div className="bg-slate-100 text-slate-600 font-bold w-8 h-8 rounded-lg flex items-center justify-center text-sm">
-                          {idx + 1}
-                        </div>
-                        <h5 className="font-bold text-lg text-slate-800 group-hover:text-emerald-700 transition-colors">
-                          {lead.name}
-                        </h5>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-slate-500 mb-2 pl-11">
-                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {lead.location}</span>
-                      </div>
-                      <p className="text-sm text-emerald-600 italic pl-11 border-l-2 border-emerald-100 bg-emerald-50/50 p-2 rounded-r-lg">
-                        "{lead.interest}"
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => importLead(lead)}
-                      className="ml-4 bg-white text-slate-600 border border-slate-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 px-4 py-2 rounded-lg font-bold text-sm transition-all flex items-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" /> CRM
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
+          <div className="mt-6 whitespace-pre-wrap">
+            {loading ? <span className="animate-pulse">_ Generating response...</span> : (response || <span className="text-slate-600">// I risultati appariranno qui...</span>)}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

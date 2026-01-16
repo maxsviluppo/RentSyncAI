@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Car, CarStatus } from '../types';
-import { generateCarDetails, analyzeMarketRates } from '../services/gemini';
+import { generateCarDetails } from '../services/gemini';
 import { useApp } from '../contexts/AppContext';
 import { Car as CarIcon, Battery, Fuel, Settings, AlertCircle, Filter, X, Plus, Sparkles, Loader2, Save, Trash2, Edit3, Gauge, Euro, Tag, Calendar, Settings2, Info, UploadCloud, Check, FileImage, ArrowRight } from 'lucide-react';
 
@@ -29,29 +29,6 @@ const FleetManager: React.FC = () => {
     // Detail/Edit Modal State
     const [selectedCar, setSelectedCar] = useState<Car | null>(null);
     const [isEditMode, setIsEditMode] = useState(false);
-    const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'settings' | 'market'>('info');
-
-    // Market Analysis State
-    const [marketAnalysis, setMarketAnalysis] = useState<{ averagePrice: number, competitors: any[], analysis: string } | null>(null);
-    const [marketLoading, setMarketLoading] = useState(false);
-
-    const handleMarketCheck = async () => {
-        if (!selectedCar) return;
-        setMarketLoading(true);
-        setMarketAnalysis(null);
-        try {
-            const res = await analyzeMarketRates(
-                `${selectedCar.brand} ${selectedCar.model}`,
-                "Milano", // Default location or we could add an input
-                7 // Default duration
-            );
-            setMarketAnalysis(res);
-        } catch (e) {
-            alert("Errore analisi mercato");
-        } finally {
-            setMarketLoading(false);
-        }
-    };
 
     // Batch Upload State
     const [showBatchModal, setShowBatchModal] = useState(false);
@@ -480,15 +457,12 @@ const FleetManager: React.FC = () => {
 
                             {/* Tabs */}
                             <div className="flex border-b border-slate-200 mb-6">
-                                <button onClick={() => setActiveDetailTab('info')} className={`pb-3 px-4 text-sm font-bold border-b-2 transition-colors ${activeDetailTab === 'info' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>Scheda Tecnica</button>
-                                <button onClick={() => setActiveDetailTab('settings')} className={`pb-3 px-4 text-sm font-bold border-b-2 transition-colors ${activeDetailTab === 'settings' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>Impostazioni</button>
-                                <button onClick={() => setActiveDetailTab('market')} className={`pb-3 px-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeDetailTab === 'market' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>
-                                    <Sparkles className="w-3 h-3" /> Market Benchmark
-                                </button>
+                                <button onClick={() => setIsEditMode(false)} className={`pb-3 px-4 text-sm font-bold border-b-2 transition-colors ${!isEditMode ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>Scheda Tecnica</button>
+                                <button onClick={() => setIsEditMode(true)} className={`pb-3 px-4 text-sm font-bold border-b-2 transition-colors ${isEditMode ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}>Impostazioni</button>
                             </div>
 
                             <div className="flex-1 space-y-6">
-                                {activeDetailTab === 'settings' ? (
+                                {isEditMode ? (
                                     <div className="space-y-4 animate-in fade-in">
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
@@ -560,70 +534,6 @@ const FleetManager: React.FC = () => {
                                             <button onClick={handleDeleteCar} className="text-red-500 hover:bg-red-50 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2"><Trash2 className="w-4 h-4" /> Elimina Auto</button>
                                             <button onClick={handleUpdateCar} className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg hover:bg-indigo-700 flex items-center gap-2"><Save className="w-4 h-4" /> Salva Modifiche</button>
                                         </div>
-                                    </div>
-                                ) : activeDetailTab === 'market' ? (
-                                    <div className="animate-in fade-in space-y-6">
-                                        <div className="bg-indigo-50 p-6 rounded-xl border border-indigo-100">
-                                            <h3 className="font-bold text-indigo-900 text-lg mb-2 flex items-center gap-2">
-                                                <Sparkles className="w-5 h-5" /> Analisi Prezzi di Mercato
-                                            </h3>
-                                            <p className="text-indigo-800 text-sm mb-4">
-                                                Confronta il tuo prezzo ({selectedCar.pricePerDay}€) con quello dei competitor reali su Google.
-                                            </p>
-
-                                            <div className="flex gap-4 items-end">
-                                                <div>
-                                                    <label className="text-xs font-bold text-indigo-400 uppercase">Input Ricerca</label>
-                                                    <div className="font-bold text-indigo-900">{selectedCar.brand} {selectedCar.model} a Milano (7gg)</div>
-                                                </div>
-                                                <button
-                                                    onClick={handleMarketCheck}
-                                                    disabled={marketLoading}
-                                                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-indigo-700 ml-auto flex items-center gap-2"
-                                                >
-                                                    {marketLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <Filter className="w-4 h-4" />}
-                                                    Analizza Ora
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {marketAnalysis && (
-                                            <div className="space-y-4">
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
-                                                        <div className="text-xs font-bold text-slate-400 uppercase">Prezzo Medio Mercato</div>
-                                                        <div className="text-2xl font-bold text-slate-800">€ {marketAnalysis.averagePrice}</div>
-                                                    </div>
-                                                    <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
-                                                        <div className="text-xs font-bold text-slate-400 uppercase">Scostamento</div>
-                                                        <div className={`text-2xl font-bold ${selectedCar.pricePerDay > marketAnalysis.averagePrice ? 'text-red-500' : 'text-green-500'}`}>
-                                                            {selectedCar.pricePerDay > marketAnalysis.averagePrice ? '+' : ''}
-                                                            {((selectedCar.pricePerDay - marketAnalysis.averagePrice) / marketAnalysis.averagePrice * 100).toFixed(0)}%
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                                    <h4 className="font-bold text-slate-700 mb-3 text-sm">Competitor Trovati</h4>
-                                                    <div className="space-y-2">
-                                                        {marketAnalysis.competitors.map((comp, i) => (
-                                                            <div key={i} className="flex justify-between items-center text-sm p-2 bg-white rounded border border-slate-100">
-                                                                <span className="font-bold text-slate-800">{comp.name}</span>
-                                                                <div className="text-right">
-                                                                    <div className="font-bold text-indigo-600">{comp.price}</div>
-                                                                    <div className="text-xs text-slate-400">{comp.notes}</div>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
-                                                    <h4 className="font-bold text-indigo-900 text-sm mb-1">Consiglio Strategico AI</h4>
-                                                    <p className="text-indigo-800 text-sm italic">"{marketAnalysis.analysis}"</p>
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 ) : (
                                     <div className="space-y-6 animate-in fade-in">
@@ -764,7 +674,7 @@ const FleetManager: React.FC = () => {
                         {filteredFleet.map((car) => (
                             <div
                                 key={car.id}
-                                onClick={() => { setSelectedCar(car); setActiveDetailTab('info'); }}
+                                onClick={() => { setSelectedCar(car); setIsEditMode(false); }}
                                 className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow group flex flex-col h-full cursor-pointer"
                             >
                                 <div className="relative h-48 overflow-hidden flex-shrink-0">
