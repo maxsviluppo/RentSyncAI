@@ -505,3 +505,64 @@ export const analyzeMarketRates = async (
     return { averagePrice: 0, competitors: [], analysis: "Errore durante l'analisi." };
   }
 }
+
+// NEW: PDF Price List Parsing
+export const parsePriceListPdf = async (base64Data: string): Promise<any> => {
+  // NOTE: Gemini 1.5 Flash supports PDF input via inlineData (max 20MB usually)
+  const prompt = `
+    Analizza questo documento PDF (Listino Prezzi Auto).
+    Estrai strutturatamente tutti i veicoli, i prezzi per le varie durate e le condizioni.
+    
+    Restituisci un JSON con questa struttura:
+    {
+      "validityDate": "Data validità listino",
+      "cars": [
+        {
+          "brand": "Brand",
+          "model": "Modello",
+          "rates": {
+             "daily": 0,
+             "monthly": 0
+          }
+        }
+      ]
+    }
+    
+    Se il documento è illeggibile o non è un listino, restituisci un errore nel JSON.
+  `;
+
+  try {
+    const client = getAiClient();
+    // Use models.generateContent with proper Part structure for Gemini 1.5
+    const response = await client.models.generateContent({
+      model: modelId,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType: 'application/pdf',
+                data: base64Data
+              }
+            }
+          ]
+        }
+      ],
+      config: {
+        responseMimeType: 'application/json'
+      }
+    });
+
+    const text = cleanJson(response.text || "{}");
+    return JSON.parse(text);
+
+  } catch (error: any) {
+    if (error.message?.includes('413') || error.status === 413) {
+      throw new Error("Il file è troppo grande (Max 20MB per Gemini 1.5 Flash).");
+    }
+    console.error("PDF Parse Error:", error);
+    throw new Error("Errore durante l'analisi API del PDF. Verifica il formato.");
+  }
+}

@@ -229,7 +229,52 @@ const Settings: React.FC = () => {
 
 
 
-                    {/* CRIF Integration Card */}
+                    {/* Price List Management */}
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 border border-slate-200 dark:border-slate-700">
+                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-rose-600">
+                            <FileText className="w-5 h-5" />
+                            Gestione Listini & AI
+                        </h2>
+                        <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg">
+                            <p className="text-sm text-slate-600 mb-4">Carica il listino ufficiale in PDF (Max 20MB) per l'estrazione automatica dei prezzi via Gemini AI.</p>
+
+                            <div className="flex items-center gap-4">
+                                <label className="flex-1">
+                                    <input
+                                        type="file"
+                                        accept=".pdf"
+                                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-rose-50 file:text-rose-700 hover:file:bg-rose-100"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                if (file.size > 20 * 1024 * 1024) {
+                                                    alert("File troppo grande (Max 20MB)");
+                                                    return;
+                                                }
+                                                // Convert to Base64 and call API
+                                                const reader = new FileReader();
+                                                reader.onload = async () => {
+                                                    const base64 = (reader.result as string).split(',')[1];
+                                                    try {
+                                                        const { parsePriceListPdf } = await import('../services/gemini');
+                                                        alert("Analisi PDF avviata... (Simulazione)");
+                                                        // const result = await parsePriceListPdf(base64);
+                                                        // console.log(result);
+                                                        // alert("Listino acquisito con successo!");
+                                                    } catch (err) {
+                                                        alert("Errore acquisizione listino API");
+                                                        console.error(err);
+                                                    }
+                                                };
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
+                                    />
+                                </label>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-2">Nota: L'acquisizione di file &gt; 5MB richiede tempo. Non chiudere la pagina.</p>
+                        </div>
+                    </div>
                     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 border border-slate-200 dark:border-slate-700">
                         <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-indigo-700">
                             <ShieldCheck className="w-5 h-5" />
