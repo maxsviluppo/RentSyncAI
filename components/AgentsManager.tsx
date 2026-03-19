@@ -238,8 +238,8 @@ const AgentsManager: React.FC = () => {
 
             {/* Agent Details Modal (Enhanced) */}
             {selectedAgent && (
-                <div className="fixed inset-0 bg-white/50 z-50 overflow-y-auto animate-in slide-in-from-bottom backdrop-blur-sm flex justify-center items-start pt-10 pb-10">
-                    <div className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="fixed inset-0 bg-slate-900/40 z-[100] overflow-y-auto animate-in fade-in slide-in-from-bottom-4 duration-300 backdrop-blur-sm flex justify-center items-start lg:items-center p-4 lg:p-10">
+                    <div className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-white/20">
 
                         {/* Header */}
                         <div className="p-8 border-b border-slate-100 flex justify-between items-start bg-slate-50">

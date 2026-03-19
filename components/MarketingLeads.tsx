@@ -18,22 +18,14 @@ const MarketingLeads: React.FC = () => {
     setLabLoading(true);
     setLabResult('');
     try {
-      // Re-using generic generation for demo purposes, or we could add a specific service method
-      // Using generateMarketingCopy as a proxy for generic text for now, or use a new method
-      const res = await generateMarketingCopy("TEST", "TEST", "TEST"); // This is a placeholder, strictly we should use a generic prompt.
-      // Let's modify the service to export a generic `askGemini` function ideally.
-      // For this step I will inject a "special" call or better yet, I should add `askGemini` to services.
-      // BUT, I can't edit services/gemini.ts in this same tool call easily without conflict/complexity.
-      // I will use generateMarketingCopy with a hack or wait. 
-      // Actually, I can allow the user to see "Simulated" response if I can't reach the API, but `generateMarketingCopy` is tied to email.
-      // I'll add `askGemini` to `services/gemini.ts` in a separate step or just assume it exists if I edit both.
-      // Let's edit `services/gemini.ts` FIRST? No, multi-file edit is risky if unrelated.
-      // I'll leave the `handleLabRun` implementation empty/mocked for a split second or use a new service method in the NEXT step.
-      // Actually, I will update `MarketingLeads.tsx` to CALL a new method `askGemini` which I will add to `gemini.ts` in the NEXT step.
-      // This ensures clean code.
-
-      // WAIT: I can import `askAiFree` (I'll name it that)
-    } catch (e) { console.error(e); }
+      const res = await askGeminiFlash(labPrompt);
+      setLabResult(res);
+    } catch (e) { 
+      console.error(e);
+      setLabResult("Errore nella comunicazione con l'IA. Riprova più tardi.");
+    } finally {
+      setLabLoading(false);
+    }
   };
 
   // Email Gen State

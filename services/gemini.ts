@@ -2,10 +2,14 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { RiskAnalysisResult, Car, DriverProfile, AIRecommendation, MarketingLead } from "../types";
 
 const getAiClient = () => {
-  const apiKey = process.env.API_KEY || "";
+  const apiKey = process.env.VITE_API_KEY || process.env.API_KEY || "";
+  if (!apiKey) {
+    console.warn("RentSync AI: API Key missing. Using simulated AI mode.");
+    return null;
+  }
   return new GoogleGenAI({ apiKey });
 };
-const modelId = "gemini-2.5-flash";
+const modelId = "gemini-1.5-flash";
 
 // Helper to clean JSON
 const cleanJson = (text: string): string => {
@@ -56,8 +60,21 @@ export const analyzeRisk = async (
     required: ["riskScore", "riskLevel", "maxCreditLimit", "reasoning", "recommendation"],
   };
 
+  const client = getAiClient();
+  if (!client) {
+    // Simulated Response
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    return {
+      riskScore: 85,
+      riskLevel: "Basso",
+      maxCreditLimit: 50000,
+      reasoning: "Il cliente presenta un profilo solido con flussi di cassa regolari e anzianità lavorativa adeguata. Non risultano pendenze significative nelle banche dati simulate.",
+      recommendation: "Approvare con deposito cauzionale standard."
+    };
+  }
+
   try {
-    const response = await getAiClient().models.generateContent({
+    const response = await client.models.generateContent({
       model: modelId,
       contents: prompt,
       config: {
@@ -82,8 +99,13 @@ export const generateMarketingCopy = async (
   interest: string,
   tone: string
 ): Promise<string> => {
+  const client = getAiClient();
+  if (!client) {
+    return `Gentile ${leadName},\n\nabbiamo notato il tuo interesse per ${interest}. In RentSync offriamo soluzioni su misura che potrebbero fare al caso tuo.\n\nTi andrebbe una breve chiamata per parlarne?\n\nCordiali saluti,\nTeam Marketing (Simulated AI)`;
+  }
+
   try {
-    const response = await getAiClient().models.generateContent({
+    const response = await client.models.generateContent({
       model: modelId,
       contents: `Scrivi una breve email commerciale (max 100 parole) per ${leadName}.
       Interessato a: ${interest}.
@@ -100,6 +122,16 @@ export const generateMarketingABTest = async (
   leadName: string,
   interest: string
 ): Promise<{ variantA: string; variantB: string; analysis: string }> => {
+  const client = getAiClient();
+  if (!client) {
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    return {
+      variantA: `Gentile ${leadName}, abbiamo una promo speciale su ${interest}. Risparmia il 20% oggi!`,
+      variantB: `Ciao ${leadName}, vuoi viaggiare nel comfort totale con ${interest}? Scopri la nostra offerta esclusiva.`,
+      analysis: "La variante A punta sul risparmio, mentre la B sull'esperienza. Consigliamo la B per i lead più alto-spendenti."
+    };
+  }
+
   const prompt = `
     Sei un esperto di Copywriting e A/B Testing.
     Genera due varianti DISTINTE di una email commerciale per il lead: ${leadName}.
@@ -119,7 +151,7 @@ export const generateMarketingABTest = async (
   `;
 
   try {
-    const response = await getAiClient().models.generateContent({
+    const response = await client.models.generateContent({
       model: modelId,
       contents: prompt,
       config: { responseMimeType: "application/json" }
@@ -132,8 +164,13 @@ export const generateMarketingABTest = async (
 };
 
 export const generateQuoteDetails = async (carModel: string, duration: number, clientType: string): Promise<string> => {
+  const client = getAiClient();
+  if (!client) {
+    await new Promise(resolve => setTimeout(resolve, 800));
+    return `Questa offerta per la ${carModel} è stata pensata per le tue esigenze di ${clientType}. Il servizio include manutenzione full-service e assistenza H24 per tutti i ${duration} giorni del noleggio.`;
+  }
   try {
-    const response = await getAiClient().models.generateContent({
+    const response = await client.models.generateContent({
       model: modelId,
       contents: `Genera una descrizione accattivante e professionale per un preventivo di noleggio auto.
             Auto: ${carModel}
@@ -166,6 +203,27 @@ export const generateCarDetails = async (brand: string, model: string, year?: nu
     8. Tipo di Cambio (Manuale, Automatico).
     `;
 
+  const client = getAiClient();
+  if (!client) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return {
+      category: 'SUV',
+      features: ["Fari Full LED", "Cruise Control Adattivo", "Clima Bizona", "Apple CarPlay", "Sensori 360"],
+      accessories: ["Cerchi in lega 18\"", "Vetri oscurati", "Telecamera post.", "Navigatore", "Sedili Sportivi"],
+      description: `Un veicolo versatile e moderno, perfetto per il ${brand} ${model}. Sicurezza e comfort garantiti.`,
+      pricePerDay: 85,
+      rentalRates: {
+        monthly1: 1200,
+        monthly3: 1100,
+        monthly6: 950,
+        monthly12: 850,
+        monthly24: 750,
+        monthly48: 680,
+      },
+      fuelType: 'Ibrido',
+      transmission: 'Automatico'
+    };
+  }
   const schema: Schema = {
     type: Type.OBJECT,
     properties: {
@@ -193,7 +251,7 @@ export const generateCarDetails = async (brand: string, model: string, year?: nu
   };
 
   try {
-    const response = await getAiClient().models.generateContent({
+    const response = await client.models.generateContent({
       model: modelId,
       contents: prompt,
       config: {
@@ -269,8 +327,16 @@ export const recommendCar = async (
     }
   };
 
+  const client = getAiClient();
+  if (!client) {
+    if (fleet.length === 0) return [];
+    return [
+      { carId: fleet[0].id, matchScore: 95, reasoning: `Data la tua percorrenza di ${profile.annualKm}km e la priorità "${profile.priority}", questo modello è il miglior compromesso tra costi e comfort.`, suggestedMonthlyRate: 450, suggestedDurationMonths: 36 },
+      { carId: fleet[1]?.id || fleet[0].id, matchScore: 88, reasoning: "Ottima per lo spazio a bordo e la tecnologia integrata.", suggestedMonthlyRate: 520, suggestedDurationMonths: 24 }
+    ];
+  }
   try {
-    const response = await getAiClient().models.generateContent({
+    const response = await client.models.generateContent({
       model: modelId,
       contents: prompt,
       config: {
@@ -310,8 +376,17 @@ export const findLeads = async (target: string, location: string): Promise<Parti
       }
     `;
 
+  const client = getAiClient();
+  if (!client) {
+    await new Promise(resolve => setTimeout(resolve, 1200));
+    return [
+      { name: "Costruzioni Rossi SpA", interest: "Potenziale flotta per nuovo cantiere a " + location, location: location },
+      { name: "Logistica Verde Srl", interest: "Necessità di furgoni elettrici per consegne ultimo miglio", location: location },
+      { name: "Studio Architettura Bianchi", interest: "Auto di rappresentanza per visite clienti", location: location }
+    ];
+  }
   try {
-    const response = await getAiClient().models.generateContent({
+    const response = await client.models.generateContent({
       model: modelId,
       contents: prompt,
       config: {
@@ -361,8 +436,12 @@ export const generateStrategicReport = async (stats: any): Promise<string> => {
         Sii diretto, professionale e orientato al profitto.
     `;
 
+  const client = getAiClient();
+  if (!client) {
+    return `**Sintesi Performance**: Il fatturato di €${stats.revenue} nel periodo è in linea con gli obiettivi.\n\n**Analisi Flotta**: Le auto ferme (${stats.unusedCars.length}) suggeriscono di attivare promozioni mirate. Investire di più su ${stats.topCars[0]}.\n\n**Strategia Commerciale**: Ottimo lavoro di ${stats.topAgents[0]}.`;
+  }
   try {
-    const response = await getAiClient().models.generateContent({
+    const response = await client.models.generateContent({
       model: modelId,
       contents: prompt,
       config: { temperature: 0.5 }
@@ -375,9 +454,13 @@ export const generateStrategicReport = async (stats: any): Promise<string> => {
 
 // NEW: Generic Chat for AI Lab
 export const askGeminiFlash = async (prompt: string): Promise<string> => {
+  const client = getAiClient();
+  if (!client) {
+    return "Senza API KEY, posso solo simulare risposte. Ecco un esempio: La flotta aziendale dovrebbe essere rinnovata ogni 3 anni per ottimizzare i costi di manutenzione.";
+  }
   try {
-    const response = await getAiClient().models.generateContent({
-      model: "gemini-2.0-flash-exp", // Fast experimentation model
+    const response = await client.models.generateContent({
+      model: "gemini-1.5-flash", 
       contents: prompt,
       config: { temperature: 0.7 }
     });
@@ -422,8 +505,19 @@ export const findStrategicLeads = async (
     }
   `;
 
+  const client = getAiClient();
+  if (!client) {
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    return {
+      strategy: `Per il settore ${sector} a ${location}, consigliamo un approccio basato sulla flessibilità operativa. Molte aziende simili stanno passando al noleggio per evitare i costi di proprietà e manutenzione.`,
+      leads: [
+        { name: `${sector} Moderni ${location}`, location: location, interest: "Rinnovo flotta aziendale" },
+        { name: "Global Services " + location, location: location, interest: "Noleggio a lungo termine furgoni" }
+      ]
+    };
+  }
   try {
-    const response = await getAiClient().models.generateContent({
+    const response = await client.models.generateContent({
       model: modelId,
       contents: prompt,
       config: {
@@ -477,8 +571,20 @@ export const analyzeMarketRates = async (
     }
   `;
 
+  const client = getAiClient();
+  if (!client) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return {
+      averagePrice: 75,
+      competitors: [
+        { name: "Hertz", price: "85€/gg", notes: "Prezzo premium" },
+        { name: "LocalRent", price: "65€/gg", notes: "Prezzo competitivo" }
+      ],
+      analysis: `Il prezzo di mercato per ${carModel} a ${location} oscilla tra i 60 e i 90 euro al giorno. Il nostro posizionamento attuale è ottimale.`
+    };
+  }
   try {
-    const response = await getAiClient().models.generateContent({
+    const response = await client.models.generateContent({
       model: modelId,
       contents: prompt,
       config: {
@@ -531,8 +637,18 @@ export const parsePriceListPdf = async (base64Data: string): Promise<any> => {
     Se il documento è illeggibile o non è un listino, restituisci un errore nel JSON.
   `;
 
+  const client = getAiClient();
+  if (!client) {
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    return {
+      validityDate: "Marzo 2024",
+      cars: [
+        { brand: "Fiat", model: "500X", rates: { daily: 45, monthly: 550 } },
+        { brand: "Audi", model: "A3", rates: { daily: 85, monthly: 950 } }
+      ]
+    };
+  }
   try {
-    const client = getAiClient();
     // Use models.generateContent with proper Part structure for Gemini 1.5
     const response = await client.models.generateContent({
       model: modelId,

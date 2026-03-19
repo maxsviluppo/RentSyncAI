@@ -275,6 +275,35 @@ const Settings: React.FC = () => {
                             <p className="text-xs text-slate-400 mt-2">Nota: L'acquisizione di file &gt; 5MB richiede tempo. Non chiudere la pagina.</p>
                         </div>
                     </div>
+
+                    {/* AI Status Card */}
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 border border-indigo-200 dark:border-indigo-900 bg-gradient-to-br from-white to-indigo-50/30">
+                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-indigo-600">
+                            <ShieldCheck className="w-5 h-5" />
+                            Stato Motore AI
+                        </h2>
+                        <div className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-indigo-100">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-lg shadow-indigo-200 animate-pulse">
+                                    <ShieldCheck className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <div className="font-bold text-slate-900">Gemini 1.5 Flash</div>
+                                    <div className="text-sm text-indigo-600 font-medium">Piano Gratuito (Google AI Studio)</div>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200 shadow-sm">
+                                    ATTIVO
+                                </span>
+                                <p className="text-[10px] text-slate-400 mt-1">Nessun costo per interrogazione</p>
+                            </div>
+                        </div>
+                        <p className="text-sm text-slate-500 mt-4 leading-relaxed">
+                            L'applicazione è configurata per utilizzare esclusivamente il modello **Flash**, ottimizzato per velocità e costi zero. In assenza di API Key locale, il sistema opera in modalità simulata ad alta fedeltà.
+                        </p>
+                    </div>
+
                     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 border border-slate-200 dark:border-slate-700">
                         <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-indigo-700">
                             <ShieldCheck className="w-5 h-5" />

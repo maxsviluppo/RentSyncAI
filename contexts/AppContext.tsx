@@ -4,25 +4,39 @@ import { Car, Client, Agent, CarStatus, Contract, MarketingLead, CompanySettings
 // Initial Mock Data
 const INITIAL_FLEET: Car[] = [
   {
-    id: '1', brand: 'BMW', model: 'X5', plate: 'GF-992-AZ', category: 'SUV', pricePerDay: 120, status: CarStatus.AVAILABLE, image: 'https://picsum.photos/400/250?random=1', features: ['Diesel', '4x4', 'Navi Pro'], description: 'SUV di lusso perfetto per lunghi viaggi.',
-    year: 2023, mileage: 15000, condition: 'Usato', fuelType: 'Diesel', transmission: 'Automatico'
+    id: '40768727',
+    vehicleCode: '40768727',
+    plate: 'HB388VC',
+    brand: 'VOLVO',
+    model: 'XC60',
+    modelDescription: 'VOLVO XC60 T6 Plug-in AWD auto Essential Sport utility vehicle 5-door (Euro 6E)',
+    fuelType: 'Petrol Plug-In',
+    transmission: 'AUT8',
+    externalColor: 'Vapour Grey metallizzato',
+    internalColor: 'Tessuto premium City Weave Antracite',
+    optional: 'Vetri oscurati delle porte posteriori e del bagagliaio',
+    expectedDelivery: '30/01/2026',
+    forNewDrivers: 'NO',
+    status: CarStatus.AVAILABLE,
+    image: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?auto=format&fit=crop&q=80&w=800'
   },
   {
-    id: '2', brand: 'Fiat', model: '500e', plate: 'GG-102-BB', category: 'Economy', pricePerDay: 45, status: CarStatus.RENTED, image: 'https://picsum.photos/400/250?random=2', features: ['Elettrica', 'City Mode', 'CarPlay'], description: 'Agile city car elettrica.',
-    year: 2024, mileage: 500, condition: 'Nuovo', fuelType: 'Elettrico', transmission: 'Automatico'
-  },
-  {
-    id: '3', brand: 'Mercedes', model: 'Class C', plate: 'FE-221-CX', category: 'Luxury', pricePerDay: 150, status: CarStatus.MAINTENANCE, image: 'https://picsum.photos/400/250?random=3', features: ['Hybrid', 'Pelle', 'ADAS L2'], description: 'Eleganza e comfort superiori.',
-    year: 2022, mileage: 45000, condition: 'Usato', fuelType: 'Ibrido', transmission: 'Automatico'
-  },
-  {
-    id: '4', brand: 'Tesla', model: 'Model 3', plate: 'HG-555-TT', category: 'Luxury', pricePerDay: 130, status: CarStatus.AVAILABLE, image: 'https://picsum.photos/400/250?random=4', features: ['Elettrica', 'Autopilot', 'Tetto Panoramico'], description: 'Tecnologia pura e prestazioni.',
-    year: 2023, mileage: 12000, condition: 'Usato', fuelType: 'Elettrico', transmission: 'Automatico'
-  },
-  {
-    id: '5', brand: 'Jeep', model: 'Renegade', plate: 'FF-404-ER', category: 'SUV', pricePerDay: 80, status: CarStatus.RENTED, image: 'https://picsum.photos/400/250?random=5', features: ['Diesel', 'Off-road', 'Spaziosa'], description: 'Versatilità per ogni terreno.',
-    year: 2021, mileage: 60000, condition: 'Usato', fuelType: 'Diesel', transmission: 'Manuale'
-  },
+    id: '40769354',
+    vehicleCode: '40769354',
+    plate: 'HC864NK',
+    brand: 'PEUGEOT',
+    model: '308 SW',
+    modelDescription: 'PEUGEOT 308 SW SW Style BlueHDi 130 EAT8 S&S SW 5-door (Euro 6E)',
+    fuelType: 'Diesel',
+    transmission: 'AUT8',
+    externalColor: 'Nero Perla metallizzato',
+    internalColor: 'Tessuto Renzo Baladin',
+    optional: 'Kit riparazione pneumatici, Tinte metallizzata',
+    expectedDelivery: '23/03/2026',
+    forNewDrivers: 'SI',
+    status: CarStatus.AVAILABLE,
+    image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=800'
+  }
 ];
 
 const INITIAL_CLIENTS: Client[] = [
@@ -105,7 +119,7 @@ interface AppContextType {
   leads: MarketingLead[];
   addClient: (client: Client) => void;
   addCar: (car: Car) => void;
-  updateCar: (car: Car) => void;
+  updateCar: (id: string, updates: Partial<Car>) => void;
   deleteCar: (id: string) => void;
   addAgent: (agent: Agent) => void;
   updateCarStatus: (id: string, status: CarStatus) => void;
@@ -115,6 +129,7 @@ interface AppContextType {
   companySettings: CompanySettings;
   updateCompanySettings: (settings: CompanySettings) => void;
   updateClient: (client: Client) => void;
+  setFleet: (fleet: Car[]) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -153,8 +168,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setFleet(prev => [...prev, car]);
   };
 
-  const updateCar = (updatedCar: Car) => {
-    setFleet(prev => prev.map(c => c.id === updatedCar.id ? updatedCar : c));
+  const updateCar = (id: string, updates: Partial<Car>) => {
+    setFleet(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
   };
 
   const deleteCar = (id: string) => {
@@ -208,7 +223,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   return (
-    <AppContext.Provider value={{ fleet, clients, agents, contracts, leads, addClient, updateClient, addCar, updateCar, deleteCar, addAgent, updateCarStatus, createContract, addLead, updateContractPhotos, companySettings, updateCompanySettings }}>
+    <AppContext.Provider value={{ fleet, setFleet, clients, agents, contracts, leads, addClient, updateClient, addCar, updateCar, deleteCar, addAgent, updateCarStatus, createContract, addLead, updateContractPhotos, companySettings, updateCompanySettings }}>
       {children}
     </AppContext.Provider>
   );

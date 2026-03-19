@@ -68,10 +68,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
             onClick={() => setActiveTab('fleet')}
           />
           <SidebarItem
-            icon={<Calculator size={20} />}
-            label="Preventivatore"
-            active={activeTab === 'quotes'}
-            onClick={() => setActiveTab('quotes')}
+            icon={<Users size={20} />}
+            label="Clienti"
+            active={activeTab === 'clients'}
+            onClick={() => setActiveTab('clients')}
           />
           <SidebarItem
             icon={<PieChart size={20} />}
@@ -83,10 +83,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
           <SectionHeader label="Commerciale & Rete" />
 
           <SidebarItem
-            icon={<Users size={20} />}
-            label="Clienti"
-            active={activeTab === 'clients'}
-            onClick={() => setActiveTab('clients')}
+            icon={<Calculator size={20} />}
+            label="Preventivatore"
+            active={activeTab === 'quotes'}
+            onClick={() => setActiveTab('quotes')}
           />
           <SidebarItem
             icon={<Briefcase size={20} />}
@@ -120,6 +120,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
             <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
             <span className="font-medium text-sm">Esci</span>
           </button>
+          
+          <div className="mt-8 p-4 bg-slate-900/50 rounded-xl border border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
+              <div className="text-xs font-bold text-white tracking-wide">Gemini Flash</div>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-tighter">Modalità Gratuita</p>
+          </div>
         </div>
       </div>
 
@@ -127,7 +135,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 relative">
         {/* Subtle decorative background blur for main content area */}
         <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-50/50 to-transparent pointer-events-none z-0"></div>
-        <main className="flex-1 overflow-y-auto p-2 relative z-10">
+        <main className="flex-1 overflow-y-auto p-2 relative">
           {children}
         </main>
       </div>

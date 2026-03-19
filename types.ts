@@ -1,40 +1,37 @@
-
 export enum CarStatus {
   AVAILABLE = 'Disponibile',
   RENTED = 'Noleggiata',
   MAINTENANCE = 'Manutenzione',
 }
 
+export interface RentalOffer {
+  duration: 36 | 48;
+  kms: number;
+  monthlyRate: number;
+  advance: number;
+  kasko: number; // percentage
+  theft: number; // percentage
+}
+
 export interface Car {
-  id: string;
-  brand: string;
-  model: string;
-  plate: string;
-  category: 'Economy' | 'SUV' | 'Luxury' | 'Van';
-  pricePerDay: number;
+  id: string; // Internal UUID or Vehicle Code
+  vehicleCode: string; // CODICE VEICOLO
+  plate: string; // TARGA
+  brand: string; // BRAND
+  model: string; // MODELLO
+  modelDescription: string; // DESCRIZIONE MOD.
+  fuelType: string; // ALIMENTAZIONE
+  transmission: string; // CAMBIO
+  externalColor: string; // COLORE ESTERNO
+  internalColor: string; // COLORE INTERNO
+  optional: string; // OPTIONAL
+  expectedDelivery: string; // PREVISTA CONSEGNA
+  forNewDrivers: string; // neopatentati
   status: CarStatus;
   image: string;
-  features?: string[];
-  description?: string;
-  // New Fields
-  year: number;
-  mileage: number;
-  condition: 'Nuovo' | 'Usato';
-  fuelType: 'Benzina' | 'Diesel' | 'Ibrido' | 'Elettrico' | 'GPL/Metano';
-  transmission: 'Manuale' | 'Automatico';
-  // Enhanced Fields
-  accessories?: string[];
-  rentalRates?: {
-    monthly1?: number;
-    monthly3?: number;
-    monthly6?: number;
-    monthly12?: number;
-    monthly24?: number;
-    monthly48?: number;
-  };
-  // Promo / Feed for Agents
-  isPromo?: boolean;
-  promoDescription?: string;
+  price?: number; // PREZZO LISTINO
+  year?: number; // ANNO IMMATRICOLAZIONE
+  offers?: RentalOffer[]; // Multi-option commercial offers
 }
 
 export interface ClientDocument {
