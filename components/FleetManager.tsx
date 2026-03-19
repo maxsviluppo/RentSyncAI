@@ -175,10 +175,10 @@ const FleetManager: React.FC = () => {
                     transmission: data.transmissionname || data.cambio || data.trasmissione || '',
                     externalColor: data.extcolorname || data['colore esterno'] || '',
                     internalColor: data.intcolorname || data['colore interno'] || '',
-                    modelDescription: data.description || data['descrizione'] || '',
+                    modelDescription: data.description || data['descrizione modello'] || data['descrizione'] || '',
                     optional: data.accessories || data.optional || '',
                     expectedDelivery: data.etadate || data['prevista consegna'] || '',
-                    price: parseFloat(data.listprice || data['prezzo listino'] || '0') || 0,
+                    price: parseFloat(data.prezzo_listino || data['prezzo listino'] || data.listprice || '0') || 0,
                     forNewDrivers: (data.neopatentati || '').toUpperCase() === 'SI' ? 'SI' : 'NO',
                     status: CarStatus.AVAILABLE,
                     image: `https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=400`,
@@ -764,12 +764,21 @@ const FleetManager: React.FC = () => {
                                             <input type="text" className="flex-1 p-2 border border-indigo-200 rounded-lg text-xl font-bold uppercase" placeholder="Marca" value={selectedCar.brand} onChange={e => setSelectedCar({...selectedCar, brand: e.target.value})} />
                                             <input type="text" className="flex-1 p-2 border border-indigo-200 rounded-lg text-xl font-bold uppercase" placeholder="Modello" value={selectedCar.model} onChange={e => setSelectedCar({...selectedCar, model: e.target.value})} />
                                         </div>
+                                        <textarea 
+                                            className="w-full p-2 border border-indigo-200 rounded-lg text-xs font-bold text-slate-600 uppercase h-16" 
+                                            placeholder="Descrizione Modello" 
+                                            value={selectedCar.modelDescription} 
+                                            onChange={e => setSelectedCar({...selectedCar, modelDescription: e.target.value})} 
+                                        />
                                         <input type="text" className="w-full p-2 border border-indigo-200 rounded-lg text-xs font-mono uppercase" placeholder="Targa" value={selectedCar.plate} onChange={e => setSelectedCar({...selectedCar, plate: e.target.value})} />
                                     </div>
                                 ) : (
-                                    <div>
-                                        <h2 className="text-3xl font-bold text-slate-900">{selectedCar.brand} {selectedCar.model}</h2>
-                                        <p className="text-slate-500 mt-1">Codice: {selectedCar.vehicleCode} • {selectedCar.plate}</p>
+                                    <div className="flex-1">
+                                        <h2 className="text-3xl font-bold text-slate-900 leading-tight uppercase tracking-tight">{selectedCar.brand} {selectedCar.model}</h2>
+                                        <div className="flex flex-col gap-1 mt-1">
+                                            <p className="text-slate-500 font-bold hover:text-indigo-600 transition-colors uppercase italic text-xs leading-relaxed">{selectedCar.modelDescription}</p>
+                                            <p className="text-slate-400 text-[10px] font-black tracking-widest uppercase">Codice: {selectedCar.vehicleCode} • {selectedCar.plate}</p>
+                                        </div>
                                     </div>
                                 )}
                                 <button 
@@ -804,6 +813,14 @@ const FleetManager: React.FC = () => {
                                         )}
                                     </div>
                                     <div className="space-y-1">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Targa Veicolo</p>
+                                        {isEditingDetails ? (
+                                            <input type="text" className="w-full p-2 border border-indigo-200 rounded-lg bg-white font-bold text-indigo-600 uppercase" value={selectedCar.plate} onChange={e => setSelectedCar({...selectedCar, plate: e.target.value})} />
+                                        ) : (
+                                            <p className="font-bold text-indigo-600 uppercase italic tracking-widest">{selectedCar.plate}</p>
+                                        )}
+                                    </div>
+                                    <div className="space-y-1">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cambio</p>
                                         {isEditingDetails ? (
                                             <input type="text" className="w-full p-2 border border-indigo-200 rounded-lg bg-white font-bold text-slate-900 uppercase" value={selectedCar.transmission} onChange={e => setSelectedCar({...selectedCar, transmission: e.target.value})} />
@@ -811,7 +828,6 @@ const FleetManager: React.FC = () => {
                                             <p className="font-bold text-slate-900 uppercase">{selectedCar.transmission}</p>
                                         )}
                                     </div>
-
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Colore Esterno</p>
                                         {isEditingDetails ? (
@@ -828,7 +844,6 @@ const FleetManager: React.FC = () => {
                                             <p className="font-bold text-slate-900">{selectedCar.internalColor || 'N/D'}</p>
                                         )}
                                     </div>
-
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Prevista Consegna</p>
                                         {isEditingDetails ? (
@@ -845,15 +860,14 @@ const FleetManager: React.FC = () => {
                                             <p className="font-bold text-slate-900">€ {selectedCar.price?.toLocaleString()}</p>
                                         )}
                                     </div>
-
-                                    <div className="col-span-2 space-y-1 pt-2 border-t border-slate-200">
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Descrizione Modello (Anteprima Card)</p>
-                                        {isEditingDetails ? (
-                                            <textarea className="w-full p-3 border border-indigo-200 rounded-lg bg-white font-bold text-slate-700 text-xs h-20" value={selectedCar.modelDescription} onChange={e => setSelectedCar({...selectedCar, modelDescription: e.target.value})} />
-                                        ) : (
-                                            <p className="text-slate-800 font-bold text-xs italic bg-slate-100/50 p-3 rounded-xl border border-slate-100">{selectedCar.modelDescription}</p>
+                                    <div className="col-span-1">
+                                        {selectedCar.forNewDrivers === 'SI' && !isEditingDetails && (
+                                            <div className="bg-green-50 text-green-700 p-2 rounded-lg flex items-center gap-2 mt-2">
+                                                <Check className="w-4 h-4" /> <span className="font-bold text-[10px] uppercase">OK PER NEOPATENTATI</span>
+                                            </div>
                                         )}
                                     </div>
+
 
                                     <div className="col-span-2 space-y-1 pt-2 border-t border-slate-200">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Optional & Accessori</p>
@@ -863,12 +877,6 @@ const FleetManager: React.FC = () => {
                                             <p className="text-slate-700 italic leading-relaxed text-xs">{selectedCar.optional || 'Nessuno specificato'}</p>
                                         )}
                                     </div>
-                                    
-                                    {selectedCar.forNewDrivers === 'SI' && !isEditingDetails && (
-                                        <div className="col-span-2 bg-green-50 text-green-700 p-2 rounded-lg flex items-center gap-2 mt-2">
-                                            <Check className="w-4 h-4" /> <span className="font-bold text-[10px] uppercase">OK PER NEOPATENTATI</span>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                             
