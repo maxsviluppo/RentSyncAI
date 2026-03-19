@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Car, CarStatus } from '../types';
 import { generateCarDetails, analyzeMarketRates } from '../services/gemini';
 import { useApp } from '../contexts/AppContext';
-import { Car as CarIcon, Battery, Fuel, Settings, AlertCircle, Filter, X, Plus, Sparkles, Loader2, Save, Trash2, Edit3, Gauge, Euro, Tag, Calendar, Settings2, Info, UploadCloud, Check, FileImage, ArrowRight, FileText, Users } from 'lucide-react';
+import { Car as CarIcon, Battery, Fuel, Settings, AlertCircle, Filter, X, Plus, Sparkles, Loader2, Save, Trash2, Edit3, Gauge, Euro, Tag, Calendar, Settings2, Info, UploadCloud, Check, FileImage, ArrowRight, FileText, Users, Zap } from 'lucide-react';
 import ClientsManager from './ClientsManager';
 
 const FleetManager: React.FC = () => {
@@ -79,8 +79,7 @@ const FleetManager: React.FC = () => {
         externalColor: '',
         internalColor: '',
         optional: '',
-        expectedDelivery: '',
-        forNewDrivers: 'NO'
+        expectedDelivery: ''
     });
 
     const filteredFleet = fleet.filter(car => {
@@ -121,24 +120,23 @@ const FleetManager: React.FC = () => {
                 internalColor: newCar.internalColor || '',
                 optional: newCar.optional || '',
                 expectedDelivery: newCar.expectedDelivery || '',
-                forNewDrivers: newCar.forNewDrivers || 'NO',
                 status: CarStatus.AVAILABLE,
                 image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=800',
                 offers: getDefaultOffers()
             };
             addCar(carToAdd);
             setShowAddModal(false);
-            setNewCar({ status: CarStatus.AVAILABLE, brand: '', model: '', plate: '', vehicleCode: '', forNewDrivers: 'NO' });
+            setNewCar({ status: CarStatus.AVAILABLE, brand: '', model: '', plate: '', vehicleCode: '' });
         }
     };
 
     const getDefaultOffers = () => [
-        { duration: 36, kms: 30000, monthlyRate: 0, advance: 0, kasko: 25, theft: 0 },
-        { duration: 36, kms: 45000, monthlyRate: 0, advance: 0, kasko: 25, theft: 0 },
-        { duration: 36, kms: 60000, monthlyRate: 0, advance: 0, kasko: 25, theft: 0 },
-        { duration: 48, kms: 40000, monthlyRate: 0, advance: 0, kasko: 25, theft: 0 },
-        { duration: 48, kms: 45000, monthlyRate: 0, advance: 0, kasko: 25, theft: 0 },
-        { duration: 48, kms: 60000, monthlyRate: 0, advance: 0, kasko: 25, theft: 0 },
+        { duration: 36, kms: 30000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0 },
+        { duration: 36, kms: 45000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0 },
+        { duration: 36, kms: 60000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0 },
+        { duration: 48, kms: 40000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0 },
+        { duration: 48, kms: 45000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0 },
+        { duration: 48, kms: 60000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0 },
     ] as any;
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -179,7 +177,6 @@ const FleetManager: React.FC = () => {
                     optional: data.accessories || data.optional || '',
                     expectedDelivery: data.etadate || data['prevista consegna'] || '',
                     price: parseFloat(data.prezzo_listino || data['prezzo listino'] || data.listprice || '0') || 0,
-                    forNewDrivers: (data.neopatentati || '').toUpperCase() === 'SI' ? 'SI' : 'NO',
                     status: CarStatus.AVAILABLE,
                     image: `https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=400`,
                     year: new Date().getFullYear(),
@@ -241,16 +238,22 @@ const FleetManager: React.FC = () => {
             const files = Array.from(e.target.files);
             const newItems = files.map(file => ({
                 file, preview: URL.createObjectURL(file),
-                matchId: fleet.find(c => file.name.toLowerCase().includes(c.model.toLowerCase()))?.id || null
+                matchId: fleet.find(c => file.name.toLowerCase().includes(c.vehicleCode.toLowerCase()))?.vehicleCode || null
             }));
             setPendingUploads(prev => [...prev, ...newItems]);
         }
     };
 
     const applyBatchUpdates = () => {
-        pendingUploads.forEach(p => p.matchId && updateCar(p.matchId, { image: p.preview }));
+        pendingUploads.forEach(p => {
+            if (p.matchId) {
+                const car = fleet.find(c => c.vehicleCode === p.matchId);
+                if (car) updateCar(car.id, { image: p.preview });
+            }
+        });
         setPendingUploads([]);
         setShowBatchModal(false);
+        alert("📸 Foto sincronizzate con successo tramite Codice Veicolo.");
     };
 
     return (
@@ -524,7 +527,6 @@ const FleetManager: React.FC = () => {
                                             <div className="flex items-center gap-2 text-slate-600 bg-slate-50 p-2 rounded-lg"><Fuel className="w-4 h-4 text-indigo-400" /> <span className="text-[10px] font-bold uppercase">{car.fuelType}</span></div>
                                             <div className="flex items-center gap-2 text-slate-600 bg-slate-50 p-2 rounded-lg"><Settings className="w-4 h-4 text-indigo-400" /> <span className="text-[10px] font-bold uppercase">{car.transmission}</span></div>
                                             <div className="flex items-center gap-2 text-slate-600 bg-slate-50 p-2 rounded-lg"><Calendar className="w-4 h-4 text-indigo-400" /> <span className="text-[10px] font-bold uppercase">{car.expectedDelivery}</span></div>
-                                            <div className="flex items-center gap-2 text-slate-600 bg-slate-50 p-2 rounded-lg"><Gauge className="w-4 h-4 text-indigo-400" /> <span className="text-[10px] font-bold uppercase">NEO: {car.forNewDrivers}</span></div>
                                         </div>
                                     </div>
                                 </div>
@@ -573,14 +575,62 @@ const FleetManager: React.FC = () => {
                                     <p className="text-2xl font-black tracking-tight leading-tight">{showOfferModal.brand} {showOfferModal.model}</p>
                                     <p className="text-xs font-mono mt-2 bg-indigo-500/50 px-2 py-1 rounded w-fit">{showOfferModal.plate}</p>
                                 </div>
-                                <div className="space-y-4 text-xs font-bold uppercase tracking-wide">
-                                    <div className="flex justify-between border-b border-indigo-500/50 pb-2"><span className="opacity-60">Anticipo</span><span>0 €</span></div>
-                                    <div className="flex justify-between border-b border-indigo-500/50 pb-2"><span className="opacity-60">Kasko</span><span>25%</span></div>
-                                    <div className="flex justify-between border-b border-indigo-500/50 pb-2"><span className="opacity-60">Furto</span><span>Incluso (0%)</span></div>
+                                
+                                <div className="space-y-6">
+                                    <div className="relative">
+                                        <label className="text-[10px] font-black text-indigo-200 uppercase tracking-widest mb-2 block">Anticipo</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="number" 
+                                                className="w-full bg-white/10 border border-white/20 p-3 rounded-xl text-white font-black text-lg outline-none focus:bg-white/20 transition-all"
+                                                value={showOfferModal.offers?.[0]?.advance || 0}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value) || 0;
+                                                    const newOffers = (showOfferModal.offers || []).map(o => ({ ...o, advance: val }));
+                                                    setShowOfferModal({ ...showOfferModal, offers: newOffers });
+                                                }}
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 font-bold">€</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="relative">
+                                        <label className="text-[10px] font-black text-indigo-200 uppercase tracking-widest mb-2 block">Kasko (Importo Fisso)</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="number" 
+                                                className="w-full bg-white/10 border border-white/20 p-3 rounded-xl text-white font-black text-lg outline-none focus:bg-white/20 transition-all"
+                                                value={showOfferModal.offers?.[0]?.kasko || 0}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value) || 0;
+                                                    const newOffers = (showOfferModal.offers || []).map(o => ({ ...o, kasko: val }));
+                                                    setShowOfferModal({ ...showOfferModal, offers: newOffers });
+                                                }}
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 font-bold">€</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="relative">
+                                        <label className="text-[10px] font-black text-indigo-200 uppercase tracking-widest mb-2 block">Furto & Incendio</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="number" 
+                                                className="w-full bg-white/10 border border-white/20 p-3 rounded-xl text-white font-black text-lg outline-none focus:bg-white/20 transition-all"
+                                                value={showOfferModal.offers?.[0]?.theft || 0}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value) || 0;
+                                                    const newOffers = (showOfferModal.offers || []).map(o => ({ ...o, theft: val }));
+                                                    setShowOfferModal({ ...showOfferModal, offers: newOffers });
+                                                }}
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 font-bold">€</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div className="mt-auto relative z-10 pt-10">
-                                <p className="text-[9px] opacity-40 uppercase tracking-tighter leading-tight italic font-medium">Parametri generati secondo policy RentSync AI 2024. Le rate inserite saranno visibili agli agenti.</p>
+                                <p className="text-[9px] opacity-40 uppercase tracking-tighter leading-tight italic font-medium">I parametri sopra indicati verranno applicati uniformemente a tutti i piani tariffari di questo veicolo.</p>
                             </div>
                         </div>
                         <div className="md:w-2/3 p-10 overflow-y-auto">
@@ -598,27 +648,33 @@ const FleetManager: React.FC = () => {
                                         {[30000, 45000, 60000].map(km => {
                                             const offer = showOfferModal.offers?.find(o => o.duration === 36 && o.kms === km);
                                             return (
-                                                <div key={km} className="bg-slate-50 p-5 rounded-2xl border border-slate-100 group hover:border-indigo-300 transition-all">
-                                                    <p className="text-[10px] font-black text-indigo-400 uppercase mb-1">Rata {km/1000}k KM</p>
-                                                    <div className="relative mt-2">
-                                                        <input 
-                                                            type="number" 
-                                                            placeholder="0.00" 
-                                                            className="w-full p-3 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none font-black text-indigo-600 bg-white transition-all"
-                                                            value={offer?.monthlyRate || ''}
-                                                            onChange={(e) => {
-                                                                const newRate = parseFloat(e.target.value) || 0;
-                                                                const newOffers = [...(showOfferModal.offers || [])];
-                                                                const idx = newOffers.findIndex(o => o.duration === 36 && o.kms === km);
-                                                                if (idx !== -1) {
-                                                                    newOffers[idx] = { ...newOffers[idx], monthlyRate: newRate };
-                                                                    setShowOfferModal(prev => prev ? ({ ...prev, offers: newOffers }) : null);
-                                                                }
-                                                            }}
-                                                        />
-                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 font-black">€</span>
-                                                    </div>
-                                                </div>
+                                                        <div key={km} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 group hover:border-indigo-300 transition-all space-y-3">
+                                                            <div className="flex justify-between items-center bg-indigo-100/50 p-2 rounded-lg">
+                                                                <p className="text-[10px] font-black text-indigo-600 uppercase">Tariffa {km/1000}k KM Totali</p>
+                                                                <span className="text-[9px] font-bold bg-white text-indigo-500 px-1.5 py-0.5 rounded border border-indigo-100 tracking-tighter">36 MESI</span>
+                                                            </div>
+                                                            
+                                                            <div className="space-y-2">
+                                                                <div className="relative">
+                                                                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1 flex items-center gap-1"><Zap className="w-3 h-3" /> Rata Mensile</p>
+                                                                    <input 
+                                                                        type="number" 
+                                                                        className="w-full p-2 border-2 border-slate-200 rounded-lg focus:border-indigo-500 outline-none font-black text-indigo-600 bg-white text-sm"
+                                                                        value={offer?.monthlyRate || ''}
+                                                                        onChange={(e) => {
+                                                                            const newRate = parseFloat(e.target.value) || 0;
+                                                                            const newOffers = [...(showOfferModal.offers || [])];
+                                                                            const idx = newOffers.findIndex(o => o.duration === 36 && o.kms === km);
+                                                                            if (idx !== -1) {
+                                                                                newOffers[idx] = { ...newOffers[idx], monthlyRate: newRate };
+                                                                                setShowOfferModal(prev => prev ? ({ ...prev, offers: newOffers }) : null);
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                    <span className="absolute right-3 bottom-2 text-slate-300 font-bold text-xs">€</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                             );
                                         })}
                                     </div>
@@ -632,27 +688,33 @@ const FleetManager: React.FC = () => {
                                         {[40000, 45000, 60000].map(km => {
                                             const offer = showOfferModal.offers?.find(o => o.duration === 48 && o.kms === km);
                                             return (
-                                                <div key={km} className="bg-slate-50 p-5 rounded-2xl border border-slate-100 group hover:border-emerald-300 transition-all">
-                                                    <p className="text-[10px] font-black text-emerald-400 uppercase mb-1">Rata {km/1000}k KM</p>
-                                                    <div className="relative mt-2">
-                                                        <input 
-                                                            type="number" 
-                                                            placeholder="0.00" 
-                                                            className="w-full p-3 border-2 border-slate-200 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none font-black text-emerald-600 bg-white transition-all"
-                                                            value={offer?.monthlyRate || ''}
-                                                            onChange={(e) => {
-                                                                const newRate = parseFloat(e.target.value) || 0;
-                                                                const newOffers = [...(showOfferModal.offers || [])];
-                                                                const idx = newOffers.findIndex(o => o.duration === 48 && o.kms === km);
-                                                                if (idx !== -1) {
-                                                                    newOffers[idx] = { ...newOffers[idx], monthlyRate: newRate };
-                                                                    setShowOfferModal(prev => prev ? ({ ...prev, offers: newOffers }) : null);
-                                                                }
-                                                            }}
-                                                        />
-                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 font-black">€</span>
-                                                    </div>
-                                                </div>
+                                                        <div key={km} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 group hover:border-emerald-300 transition-all space-y-3">
+                                                            <div className="flex justify-between items-center bg-emerald-100/50 p-2 rounded-lg">
+                                                                <p className="text-[10px] font-black text-emerald-600 uppercase">Tariffa {km/1000}k KM Totali</p>
+                                                                <span className="text-[9px] font-bold bg-white text-emerald-500 px-1.5 py-0.5 rounded border border-emerald-100 tracking-tighter">48 MESI</span>
+                                                            </div>
+                                                            
+                                                            <div className="space-y-2">
+                                                                <div className="relative">
+                                                                    <p className="text-[9px] font-black text-slate-400 uppercase mb-1 flex items-center gap-1"><Zap className="w-3 h-3 text-emerald-500" /> Rata Mensile</p>
+                                                                    <input 
+                                                                        type="number" 
+                                                                        className="w-full p-2 border-2 border-slate-200 rounded-lg focus:border-emerald-500 outline-none font-black text-emerald-600 bg-white text-sm"
+                                                                        value={offer?.monthlyRate || ''}
+                                                                        onChange={(e) => {
+                                                                            const newRate = parseFloat(e.target.value) || 0;
+                                                                            const newOffers = [...(showOfferModal.offers || [])];
+                                                                            const idx = newOffers.findIndex(o => o.duration === 48 && o.kms === km);
+                                                                            if (idx !== -1) {
+                                                                                newOffers[idx] = { ...newOffers[idx], monthlyRate: newRate };
+                                                                                setShowOfferModal(prev => prev ? ({ ...prev, offers: newOffers }) : null);
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                    <span className="absolute right-3 bottom-2 text-slate-300 font-bold text-xs">€</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                             );
                                         })}
                                     </div>
@@ -698,8 +760,8 @@ const FleetManager: React.FC = () => {
                                             newPending[idx].matchId = e.target.value || null;
                                             setPendingUploads(newPending);
                                         }}>
-                                            <option value="">Collega Veicolo...</option>
-                                            {fleet.map(c => <option key={c.id} value={c.id}>{c.brand} {c.model} ({c.plate})</option>)}
+                                            <option value="">Collega Veicolo (Codice)...</option>
+                                            {fleet.map(c => <option key={c.id} value={c.vehicleCode}>{c.brand} {c.model} - {c.vehicleCode} ({c.plate})</option>)}
                                         </select>
                                     </div>
                                     <button onClick={() => setPendingUploads(pendingUploads.filter((_, i) => i !== idx))} className="p-2 text-slate-400 hover:text-red-500"><Trash2 className="w-5 h-5" /></button>
@@ -738,9 +800,6 @@ const FleetManager: React.FC = () => {
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row animate-in zoom-in">
                         <div className="md:w-2/5 bg-slate-100 relative group">
                             <img src={selectedCar.image} alt="car" className="w-full h-full object-cover" />
-                            <div className="absolute top-4 left-4 flex gap-2">
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${selectedCar.status === CarStatus.AVAILABLE ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}`}>{selectedCar.status}</span>
-                            </div>
                             
                             {/* Manual Image Update Button */}
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
@@ -781,15 +840,34 @@ const FleetManager: React.FC = () => {
                                         </div>
                                     </div>
                                 )}
-                                <button 
-                                    onClick={() => {
-                                        setSelectedCar(null);
-                                        setIsEditingDetails(false);
-                                    }} 
-                                    className="p-2 hover:bg-slate-100 rounded-full"
-                                >
-                                    <X className="w-6 h-6 text-slate-400" />
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    <select 
+                                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black shadow-xl border-2 transition-all outline-none ${
+                                            selectedCar.status === CarStatus.AVAILABLE ? 'bg-green-500 border-green-400 text-white' : 
+                                            selectedCar.status === CarStatus.RENTED ? 'bg-blue-500 border-blue-400 text-white' : 
+                                            'bg-amber-500 border-amber-400 text-white'
+                                        }`}
+                                        value={selectedCar.status}
+                                        onChange={(e) => {
+                                            const newStatus = e.target.value as CarStatus;
+                                            setSelectedCar({...selectedCar, status: newStatus});
+                                            updateCarStatus(selectedCar.id, newStatus);
+                                        }}
+                                    >
+                                        <option value={CarStatus.AVAILABLE}>DISPONIBILE</option>
+                                        <option value={CarStatus.RENTED}>NOLEGGIATA</option>
+                                        <option value={CarStatus.MAINTENANCE}>MANUTENZIONE</option>
+                                    </select>
+                                    <button 
+                                        onClick={() => {
+                                            setSelectedCar(null);
+                                            setIsEditingDetails(false);
+                                        }} 
+                                        className="p-2 hover:bg-slate-100 rounded-full"
+                                    >
+                                        <X className="w-6 h-6 text-slate-400" />
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-6 transition-all">
@@ -861,11 +939,6 @@ const FleetManager: React.FC = () => {
                                         )}
                                     </div>
                                     <div className="col-span-1">
-                                        {selectedCar.forNewDrivers === 'SI' && !isEditingDetails && (
-                                            <div className="bg-green-50 text-green-700 p-2 rounded-lg flex items-center gap-2 mt-2">
-                                                <Check className="w-4 h-4" /> <span className="font-bold text-[10px] uppercase">OK PER NEOPATENTATI</span>
-                                            </div>
-                                        )}
                                     </div>
 
 

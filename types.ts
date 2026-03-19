@@ -9,8 +9,8 @@ export interface RentalOffer {
   kms: number;
   monthlyRate: number;
   advance: number;
-  kasko: number; // percentage
-  theft: number; // percentage
+  kasko: number; // amount in Euro
+  theft: number; // amount in Euro
 }
 
 export interface Car {
@@ -26,7 +26,6 @@ export interface Car {
   internalColor: string; // COLORE INTERNO
   optional: string; // OPTIONAL
   expectedDelivery: string; // PREVISTA CONSEGNA
-  forNewDrivers: string; // neopatentati
   status: CarStatus;
   image: string;
   price?: number; // PREZZO LISTINO
