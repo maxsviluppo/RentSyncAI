@@ -28,9 +28,15 @@ export interface Car {
   expectedDelivery: string; // PREVISTA CONSEGNA
   status: CarStatus;
   image: string;
-  price?: number; // PREZZO LISTINO
-  year?: number; // ANNO IMMATRICOLAZIONE
-  offers?: RentalOffer[]; // Multi-option commercial offers
+  category?: string;
+  pricePerDay?: number;
+  features?: string[];
+  price?: number;
+  year?: number;
+  offers?: RentalOffer[];
+  forNewDrivers?: string;
+  accessories?: string[];
+  description?: string;
 }
 
 export interface ClientDocument {
@@ -190,4 +196,10 @@ export interface CompanySettings {
   crifPassword?: string;
   crifCircuit?: 'S' | 'P'; // e.g. 'S' for Synthetic, 'P' for Production
   crifCertificate?: string; // PEM/P12 content or path
+}
+
+export interface UserSession {
+  role: 'agency' | 'agent';
+  userId?: string;
+  name: string;
 }

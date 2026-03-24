@@ -18,7 +18,14 @@ const INITIAL_FLEET: Car[] = [
     expectedDelivery: '30/01/2026',
     forNewDrivers: 'NO',
     status: CarStatus.AVAILABLE,
-    image: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?auto=format&fit=crop&q=80&w=800'
+    image: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?auto=format&fit=crop&q=80&w=800',
+    category: 'SUV',
+    pricePerDay: 120,
+    features: ['GPS', 'Pelle', 'Riscaldamento'],
+    offers: [
+      { duration: 36, kms: 45000, monthlyRate: 750, advance: 2500, kasko: 500, theft: 0 },
+      { duration: 48, kms: 60000, monthlyRate: 680, advance: 3000, kasko: 500, theft: 0 }
+    ]
   },
   {
     id: '40769354',
@@ -35,7 +42,14 @@ const INITIAL_FLEET: Car[] = [
     expectedDelivery: '23/03/2026',
     forNewDrivers: 'SI',
     status: CarStatus.AVAILABLE,
-    image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=800'
+    image: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&q=80&w=800',
+    category: 'Berlina',
+    pricePerDay: 85,
+    features: ['Cruise Control', 'CarPlay', 'Sensori Parcheggio'],
+    offers: [
+      { duration: 36, kms: 30000, monthlyRate: 450, advance: 0, kasko: 500, theft: 0 },
+      { duration: 48, kms: 40000, monthlyRate: 390, advance: 1500, kasko: 500, theft: 0 }
+    ]
   }
 ];
 

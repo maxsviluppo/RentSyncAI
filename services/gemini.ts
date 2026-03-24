@@ -192,13 +192,9 @@ export const generateCarDetails = async (brand: string, model: string, year?: nu
     3. array 'accessories': 5 accessori o optional specifici (es. "Tetto Panoramico", "Cerchi in lega 19", "Sedili riscaldati").
     4. 'description': Una descrizione accattivante (max 30 parole) orientata alla vendita.
     5. 'pricePerDay': Prezzo giornaliero per noleggio breve (Euro).
-    6. 'rentalRates': Un oggetto con le quote mensili suggerite per diverse durate. Calcola le quote in modo decrescente (più mesi = rata più bassa). Considera svalutazione e margine.
-       - monthly1 (1 mese)
-       - monthly3 (3 mesi)
-       - monthly6 (6 mesi)
-       - monthly12 (12 mesi)
-       - monthly24 (24 mesi)
-       - monthly48 (48 mesi)
+    6. array 'offers': Un array di oggetti RentalOffer con suggerimenti per:
+       - 36 mesi (monthlyRate suggerita, km: 30000, anticipo suggerito, kasko: 500, theft: 0)
+       - 48 mesi (monthlyRate suggerita, km: 40000, anticipo suggerito, kasko: 500, theft: 0)
     7. Tipo di Alimentazione (Benzina, Diesel, Ibrido, Elettrico, GPL/Metano).
     8. Tipo di Cambio (Manuale, Automatico).
     `;
@@ -212,14 +208,10 @@ export const generateCarDetails = async (brand: string, model: string, year?: nu
       accessories: ["Cerchi in lega 18\"", "Vetri oscurati", "Telecamera post.", "Navigatore", "Sedili Sportivi"],
       description: `Un veicolo versatile e moderno, perfetto per il ${brand} ${model}. Sicurezza e comfort garantiti.`,
       pricePerDay: 85,
-      rentalRates: {
-        monthly1: 1200,
-        monthly3: 1100,
-        monthly6: 950,
-        monthly12: 850,
-        monthly24: 750,
-        monthly48: 680,
-      },
+      offers: [
+        { duration: 36, kms: 30000, monthlyRate: 450, advance: 2000, kasko: 500, theft: 0 },
+        { duration: 48, kms: 40000, monthlyRate: 390, advance: 2500, kasko: 500, theft: 0 }
+      ],
       fuelType: 'Ibrido',
       transmission: 'Automatico'
     };
@@ -232,22 +224,25 @@ export const generateCarDetails = async (brand: string, model: string, year?: nu
       accessories: { type: Type.ARRAY, items: { type: Type.STRING } },
       description: { type: Type.STRING },
       pricePerDay: { type: Type.NUMBER },
-      rentalRates: {
-        type: Type.OBJECT,
-        properties: {
-          monthly1: { type: Type.NUMBER },
-          monthly3: { type: Type.NUMBER },
-          monthly6: { type: Type.NUMBER },
-          monthly12: { type: Type.NUMBER },
-          monthly24: { type: Type.NUMBER },
-          monthly48: { type: Type.NUMBER },
-        },
-        required: ['monthly1', 'monthly12', 'monthly24', 'monthly48']
+      offers: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            duration: { type: Type.INTEGER },
+            kms: { type: Type.INTEGER },
+            monthlyRate: { type: Type.NUMBER },
+            advance: { type: Type.NUMBER },
+            kasko: { type: Type.NUMBER },
+            theft: { type: Type.NUMBER }
+          },
+          required: ['duration', 'kms', 'monthlyRate', 'advance', 'kasko', 'theft']
+        }
       },
       fuelType: { type: Type.STRING, enum: ['Benzina', 'Diesel', 'Ibrido', 'Elettrico', 'GPL/Metano'] },
       transmission: { type: Type.STRING, enum: ['Manuale', 'Automatico'] },
     },
-    required: ['category', 'features', 'accessories', 'description', 'pricePerDay', 'rentalRates', 'fuelType', 'transmission']
+    required: ['category', 'features', 'accessories', 'description', 'pricePerDay', 'offers', 'fuelType', 'transmission']
   };
 
   try {

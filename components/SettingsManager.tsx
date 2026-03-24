@@ -1,21 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { CompanyProfile } from '../types';
-import { generateCompanyBio } from '../services/gemini';
+import { CompanySettings } from '../types';
 import { Building2, Save, Wand2, Loader2, Key, ShieldCheck } from 'lucide-react';
 
 const SettingsManager: React.FC = () => {
-    const { companyProfile, updateCompanyProfile } = useApp();
-    const [formData, setFormData] = useState<CompanyProfile>(companyProfile);
+    const { companySettings, updateCompanySettings } = useApp();
+    const [formData, setFormData] = useState<CompanySettings>(companySettings);
     const [activeTab, setActiveTab] = useState<'general' | 'api'>('general');
     const [aiLoading, setAiLoading] = useState(false);
 
     useEffect(() => {
-        setFormData(companyProfile);
-    }, [companyProfile]);
+        setFormData(companySettings);
+    }, [companySettings]);
 
     const handleSave = () => {
-        updateCompanyProfile(formData);
+        updateCompanySettings(formData);
         alert("Impostazioni salvate!");
     };
 
@@ -26,15 +25,12 @@ const SettingsManager: React.FC = () => {
     };
 
     const handleAiBio = async () => {
-        setAiLoading(true);
-        try {
-            const bio = await generateCompanyBio(formData);
-            setFormData(prev => ({ ...prev, bio }));
-        } catch(e) {
-            alert("Errore AI: Verifica la configurazione della tua chiave nel dialogo AI Studio.");
-        } finally {
-            setAiLoading(false);
-        }
+       // Placeholder for generating company bio - currently we don't have a specific prompt
+       setAiLoading(true);
+       setTimeout(() => {
+           setFormData(prev => ({ ...prev, description: "RentSyncAI è il tuo partner ideale per il noleggio a lungo termine." }));
+           setAiLoading(false);
+       }, 1000);
     };
 
     return (
@@ -58,11 +54,25 @@ const SettingsManager: React.FC = () => {
                     {activeTab === 'general' && (
                         <div className="space-y-6">
                             <h3 className="text-xl font-bold">Profilo Aziendale</h3>
-                            <input type="text" className="w-full p-3 border rounded-xl bg-slate-50" placeholder="Nome Agenzia" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                            <textarea rows={4} className="w-full p-3 border rounded-xl bg-slate-50" placeholder="Descrizione bio..." value={formData.bio} onChange={e => setFormData({...formData, bio: e.target.value})} />
-                            <button onClick={handleAiBio} disabled={aiLoading} className="text-indigo-600 font-bold flex items-center gap-2 text-sm">
-                                {aiLoading ? <Loader2 className="animate-spin w-4 h-4"/> : <Wand2 className="w-4 h-4"/>} Genera con AI
-                            </button>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome Agenzia</label>
+                                <input type="text" className="w-full p-3 border rounded-xl bg-slate-50" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ragione Sociale</label>
+                                <input type="text" className="w-full p-3 border rounded-xl bg-slate-50" value={formData.legalName} onChange={e => setFormData({...formData, legalName: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">P.IVA</label>
+                                <input type="text" className="w-full p-3 border rounded-xl bg-slate-50" value={formData.vatNumber} onChange={e => setFormData({...formData, vatNumber: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Descrizione Bio</label>
+                                <textarea rows={4} className="w-full p-3 border rounded-xl bg-slate-50" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                                <button onClick={handleAiBio} disabled={aiLoading} className="text-indigo-600 font-bold flex items-center gap-2 text-sm mt-1">
+                                    {aiLoading ? <Loader2 className="animate-spin w-4 h-4"/> : <Wand2 className="w-4 h-4"/>} Genera con AI
+                                </button>
+                            </div>
                         </div>
                     )}
 

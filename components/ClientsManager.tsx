@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Client, Contract } from '../types';
 import { useApp } from '../contexts/AppContext';
 import { Users, Search, Plus, Building2, User, ArrowLeft, History, Calendar, Car as CarIcon, Eye, Printer, Share2, Camera, UploadCloud, X, AlertTriangle, ArrowRight, CheckCircle2, FileText, Trash2, Bell, FileCheck, Briefcase } from 'lucide-react';
+import { supabase } from '../services/supabase';
 
 const ClientsManager: React.FC = () => {
   const { clients, contracts, fleet, agents, addClient, updateContractPhotos } = useApp();
@@ -30,7 +31,7 @@ const ClientsManager: React.FC = () => {
     }
 
     const client: Client = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       name: newClient.name || '',
       email: newClient.email || '',
       phone: newClient.phone || '',
@@ -41,6 +42,33 @@ const ClientsManager: React.FC = () => {
       ...newClient
     };
     addClient(client);
+
+    // Sync to Supabase
+    const syncToSupabase = async () => {
+      try {
+        const { error } = await supabase.from('clients').insert([{
+          id: client.id,
+          name: client.name,
+          email: client.email,
+          phone: client.phone,
+          type: client.type,
+          vat_number: client.vatNumber,
+          fiscal_code: client.fiscalCode,
+          address_street: client.address?.street,
+          address_city: client.address?.city,
+          address_zip: client.address?.zip,
+          address_province: client.address?.province,
+          status: client.status,
+          risk_score: client.riskScore,
+          notes: client.notes
+        }]);
+        if (error) console.error('Error syncing to Supabase:', error);
+      } catch (err) {
+        console.error('Supabase sync exception:', err);
+      }
+    };
+    syncToSupabase();
+
     setShowAddForm(false);
     setNewClient({ type: 'Privato', status: 'Attivo' });
   };
@@ -570,7 +598,7 @@ const ClientsManager: React.FC = () => {
             <h3 className="text-xl font-bold mb-4">Aggiungi Nuovo Cliente</h3>
             <form onSubmit={handleAddClient} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700">Nome / Ragione Sociale</label>
+                <label className="block text-sm font-medium text-slate-700">Nome Cognome/Ragione Sociale</label>
                 <input
                   type="text" required
                   className="w-full p-2 border rounded-lg"
@@ -623,6 +651,49 @@ const ClientsManager: React.FC = () => {
                     value={newClient.vatNumber || ''}
                     onChange={e => setNewClient({ ...newClient, vatNumber: e.target.value })}
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-slate-700">Residenza/Sede Legale (Via/Piazza)</label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border rounded-lg"
+                    placeholder="Es. Via Roma 10"
+                    value={newClient.address?.street || ''}
+                    onChange={e => setNewClient({ ...newClient, address: { ...(newClient.address || { city: '', zip: '', province: '' }), street: e.target.value } })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Città</label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border rounded-lg"
+                    value={newClient.address?.city || ''}
+                    onChange={e => setNewClient({ ...newClient, address: { ...(newClient.address || { street: '', zip: '', province: '' }), city: e.target.value } })}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-slate-700">CAP</label>
+                    <input
+                      type="text"
+                      className="w-full p-2 border rounded-lg"
+                      value={newClient.address?.zip || ''}
+                      onChange={e => setNewClient({ ...newClient, address: { ...(newClient.address || { street: '', city: '', province: '' }), zip: e.target.value } })}
+                    />
+                  </div>
+                  <div className="w-20">
+                    <label className="block text-sm font-medium text-slate-700">PR</label>
+                    <input
+                      type="text"
+                      maxLength={2}
+                      className="w-full p-2 border rounded-lg uppercase"
+                      value={newClient.address?.province || ''}
+                      onChange={e => setNewClient({ ...newClient, address: { ...(newClient.address || { street: '', city: '', zip: '' }), province: e.target.value.toUpperCase() } })}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -681,6 +752,7 @@ const ClientsManager: React.FC = () => {
                         )}
                       </div>
                       {client.vatNumber && <div className="text-xs text-slate-500">P.IVA: {client.vatNumber}</div>}
+                      {client.address?.city && <div className="text-xs text-indigo-600 font-medium">{client.address.city} {client.address.province ? `(${client.address.province})` : ''}</div>}
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-slate-600">{client.email}</div>
