@@ -46,9 +46,9 @@ const QuoteGenerator: React.FC = () => {
     ? selectedOffer.monthlyRate
     : (selectedCar ? (selectedCar.price || 0) * days : 0);
   
-  const finalTotal = Math.max(0, baseTotal - discount);
-  const vat = finalTotal * 0.22;
-  const grandTotal = finalTotal + vat;
+  const finalTotal = Math.round(Math.max(0, baseTotal - discount));
+  const vat = Math.round(finalTotal * 0.22);
+  const grandTotal = Math.round(finalTotal + vat);
 
   const handleGenerateAI = async () => {
     if (!selectedCar) return;
@@ -630,13 +630,13 @@ const QuoteGenerator: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Totals Section - Only Show if Step > 1 */}
+                    {/* Totals Section - Enhanced for Printing */}
                     {step > 1 && (
-                      <div className="mt-4 pt-4 border-t-2 border-slate-900 border-dashed">
-                        <div className="bg-slate-900 text-white rounded-xl p-6 shadow-xl print:shadow-none">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="mt-6 pt-4 border-t-2 border-slate-900 border-dashed">
+                        <div className="bg-slate-900 text-white rounded-xl p-4 md:p-6 shadow-xl print:shadow-none print:bg-slate-900 print:text-white">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-slate-700">
                             {/* Column 1: Monthly Detail */}
-                            <div className="space-y-2">
+                            <div className="space-y-3 pb-4 md:pb-0 md:pr-6">
                               <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block mb-2">Canone Mensile</span>
                               <div className="flex justify-between items-center text-xs opacity-80">
                                 <span>Rata Netta:</span>
@@ -646,68 +646,97 @@ const QuoteGenerator: React.FC = () => {
                                 <span>IVA (22%):</span>
                                 <span>€ {Math.round(vat).toLocaleString()}</span>
                               </div>
-                              <div className="flex justify-between items-center text-base font-bold text-white pt-1">
-                                <span>Totale Rata:</span>
+                              <div className="flex justify-between items-center text-lg font-black text-white pt-2">
+                                <span>Rata Totale:</span>
                                 <span>€ {Math.round(grandTotal).toLocaleString()}</span>
                               </div>
                             </div>
 
                             {/* Column 2: Service Franchises */}
-                            {selectedOffer && (
-                              <div className="space-y-1">
+                            {selectedOffer ? (
+                              <div className="space-y-3 pt-4 md:pt-0 md:px-6">
                                 <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block mb-2">Opzioni & Franchigie</span>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div className="bg-slate-800/40 p-2 rounded">
-                                    <span className="block opacity-50 text-[8px] uppercase">Anticipo</span>
-                                    <span className="font-bold text-xs text-white">€ {selectedOffer.advance.toLocaleString()}</span>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                  <div>
+                                    <span className="block opacity-50 text-[8px] uppercase font-bold">Anticipo</span>
+                                    <span className="font-bold text-sm text-white">€ {selectedOffer.advance.toLocaleString()}</span>
                                   </div>
-                                  <div className="bg-slate-800/40 p-2 rounded">
-                                    <span className="block opacity-50 text-[8px] uppercase">Kasko</span>
-                                    <span className="font-bold text-xs text-white">€ {selectedOffer.kasko.toLocaleString()}</span>
+                                  <div>
+                                    <span className="block opacity-50 text-[8px] uppercase font-bold">Kasko (Ric.)</span>
+                                    <span className="font-bold text-sm text-white">€ {selectedOffer.kasko.toLocaleString()}</span>
                                   </div>
-                                  <div className="bg-slate-800/40 p-2 rounded">
-                                    <span className="block opacity-50 text-[8px] uppercase">Furto</span>
-                                    <span className="font-bold text-xs text-white">€ {selectedOffer.theft.toLocaleString()}</span>
+                                  <div>
+                                    <span className="block opacity-50 text-[8px] uppercase font-bold">Furto (Ric.)</span>
+                                    <span className="font-bold text-sm text-white">€ {selectedOffer.theft.toLocaleString()}</span>
                                   </div>
-                                  <div className="bg-slate-800/40 p-2 rounded">
-                                    <span className="block opacity-50 text-[8px] uppercase">Durata</span>
-                                    <span className="font-bold text-xs text-white">{selectedOffer.duration} mesi</span>
+                                  <div>
+                                    <span className="block opacity-50 text-[8px] uppercase font-bold">Durata</span>
+                                    <span className="font-bold text-sm text-white">{selectedOffer.duration} mesi</span>
                                   </div>
+                                </div>
+                                <div className="pt-2">
+                                  <span className="block opacity-50 text-[8px] uppercase font-bold mb-1">Km Totali inclusi</span>
+                                  <span className="text-sm font-bold">{selectedOffer.kms.toLocaleString()} km</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-2 pt-4 md:pt-0 md:px-6">
+                                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block mb-2">Opzioni Base</span>
+                                <div className="p-3 bg-slate-800/40 rounded border border-slate-700">
+                                   <div className="flex justify-between text-xs">
+                                      <span>Inizio:</span>
+                                      <span className="font-bold">{startDate || '-'}</span>
+                                   </div>
+                                   <div className="flex justify-between text-xs mt-1">
+                                      <span>Fine:</span>
+                                      <span className="font-bold">{endDate || '-'}</span>
+                                   </div>
                                 </div>
                               </div>
                             )}
 
                             {/* Column 3: Grand Engagement */}
-                            {selectedOffer && (
-                              <div className="flex flex-col justify-between">
-                                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block mb-2">Impegno Contrattuale</span>
-                                <div className="text-xs space-y-1 mb-2">
-                                  <div className="flex justify-between opacity-80">
-                                    <span>Volume Netto:</span>
-                                    <span>€ {Math.round((selectedOffer.monthlyRate * selectedOffer.duration) + (selectedOffer.advance || 0)).toLocaleString()}</span>
+                            <div className="pt-4 md:pt-0 md:pl-6 flex flex-col justify-between">
+                              <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block mb-2">Impegno Contrattuale</span>
+                              {selectedOffer ? (
+                                <div className="space-y-4">
+                                  <div className="text-xs space-y-1">
+                                    <div className="flex justify-between opacity-80">
+                                      <span>Somma Rate (Netto):</span>
+                                      <span>€ {Math.round(selectedOffer.monthlyRate * selectedOffer.duration).toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between opacity-80">
+                                      <span>Anticipo:</span>
+                                      <span>€ {selectedOffer.advance.toLocaleString()}</span>
+                                    </div>
+                                  </div>
+                                  <div className="bg-indigo-600 rounded-lg p-4 shadow-inner border border-indigo-400/30">
+                                    <span className="block text-[8px] uppercase font-bold text-indigo-200 mb-1">Valore Totale Contratto (Inc. IVA)</span>
+                                    <span className="text-2xl font-black block tracking-tight">
+                                      € {Math.round(((selectedOffer.monthlyRate * selectedOffer.duration) + (selectedOffer.advance || 0)) * 1.22).toLocaleString()}
+                                    </span>
                                   </div>
                                 </div>
-                                <div className="bg-indigo-600 rounded-lg p-3 shadow-inner">
-                                  <span className="block text-[9px] uppercase font-bold text-indigo-200">Gran Totale (Inc. IVA)</span>
-                                  <span className="text-xl font-black block">
-                                    € {Math.round(((selectedOffer.monthlyRate * selectedOffer.duration) + (selectedOffer.advance || 0)) * 1.22).toLocaleString()}
+                              ) : (
+                                <div className="bg-indigo-600 rounded-lg p-4 shadow-inner border border-indigo-400/30">
+                                  <span className="block text-[8px] uppercase font-bold text-indigo-200 mb-1">Subtotale Lordo (IVA incl.)</span>
+                                  <span className="text-2xl font-black block tracking-tight">
+                                    € {Math.round(grandTotal).toLocaleString()}
                                   </span>
                                 </div>
-                              </div>
-                            )}
-                          </div>
-                          {selectedOffer && (
-                            <div className="mt-4 pt-4 border-t border-slate-800 text-center">
-                              <p className="text-[8px] opacity-40 italic">
-                                * Il conteggio del Volume Netto e del Gran Totale include la sommatoria di tutte le rate previste e l'anticipo versato.
-                              </p>
+                              )}
                             </div>
-                          )}
+                          </div>
+                          <div className="mt-4 pt-4 border-t border-slate-800 text-center">
+                            <p className="text-[8px] opacity-40 italic">
+                             * I calcoli qui riportati sono puramente indicativi e potrebbero variare in fase di sottoscrizione definitiva. IVA calcolata al 22%.
+                            </p>
+                          </div>
                         </div>
                       </div>
                     )}
                     <div className="mt-8 pt-6 text-[10px] text-slate-400 border-t border-slate-100 italic">
-                      <p>Il presente documento non costituisce proposta contrattuale ed è soggetto ad approvazione da parte di RentSyncAI. I prezzi indicati sono validi per 15 giorni dalla data di emissione.</p>
+                      <p>Il presente documento non costituisce proposta contrattuale ed è soggetto ad approvazione peritale da parte di RentSyncAI o dei propri partner finanziari. I prezzi indicati sono validi per 15 giorni dalla data di emissione per i veicoli disponibili in stock.</p>
                     </div>
                   </div>
                 )}
