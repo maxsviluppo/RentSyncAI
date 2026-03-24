@@ -2,7 +2,11 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { RiskAnalysisResult, Car, DriverProfile, AIRecommendation, MarketingLead } from "../types";
 
 const getAiClient = () => {
-  const apiKey = process.env.VITE_API_KEY || process.env.API_KEY || "";
+  // Use import.meta.env for Vite and safe check for process.env
+  const apiKey = (import.meta.env?.VITE_API_KEY) || 
+                 (typeof process !== 'undefined' ? process.env?.API_KEY : '') || 
+                 "";
+  
   if (!apiKey) {
     console.warn("RentSync AI: API Key missing. Using simulated AI mode.");
     return null;
