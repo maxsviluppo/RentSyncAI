@@ -45,6 +45,7 @@ const ClientsManager: React.FC = () => {
 
     // Sync to Supabase
     const syncToSupabase = async () => {
+      if (!supabase) return; // Skip if no Supabase instance is available
       try {
         const { error } = await supabase.from('clients').insert([{
           id: client.id,
