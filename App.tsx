@@ -13,6 +13,7 @@ import { AppProvider, useApp } from './contexts/AppContext';
 
 const AppContent: React.FC = () => {
   const { activeTab, setActiveTab } = useApp();
+  const isAgentMode = new URLSearchParams(window.location.search).has('agent_ref');
 
   const renderContent = () => {
     switch (activeTab) {
@@ -39,8 +40,10 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // If we are in mobile mode via QR code, we might want to hide the desktop sidebar
-  // But for now, we keep the layout consistent or hide sidebar if on small screen
+  if (isAgentMode) {
+    return <AgentMobileApp />;
+  }
+
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
       {renderContent()}
