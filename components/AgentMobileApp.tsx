@@ -2,196 +2,396 @@ import React, { useState, useEffect } from 'react';
 import { recommendCar } from '../services/gemini';
 import { CarStatus, AIRecommendation, Contract, DriverProfile, Agent } from '../types';
 import { useApp } from '../contexts/AppContext';
-import { Smartphone, LogIn, User, Car as CarIcon, FileText, Search, Sparkles, ArrowRight, Loader2, Home, Plus, PenTool, CheckCircle, Wifi, DollarSign, Settings2, QrCode, Share2, Copy, X, Camera, Trash, FileCheck, Building2, Phone, Mail, UploadCloud } from 'lucide-react';
+import { Smartphone, LogIn, User, Car as CarIcon, FileText, Search, Sparkles, ArrowRight, Loader2, Home, Plus, PenTool, CheckCircle, Wifi, DollarSign, Settings2, QrCode, Share2, Copy, X, Camera, Trash, FileCheck, Building2, Phone, Mail, UploadCloud, Fuel, Settings, Calendar, Gauge, Info, Tag, Euro, ChevronRight, Check, Zap } from 'lucide-react';
 
 // --- SUB-COMPONENTS ---
 
 // 1. Contract / Rental Generator
-const MobileContract: React.FC<{ currentAgent: Agent }> = ({ currentAgent }) => {
+const MobileContract: React.FC<{ currentAgent: Agent, preSelectedCarId?: string | null, onCarSelected?: () => void }> = ({ currentAgent, preSelectedCarId, onCarSelected }) => {
   const { fleet, clients, createContract } = useApp();
   const [step, setStep] = useState(1);
+  
+  // Selection States
   const [selectedClientId, setSelectedClientId] = useState('');
-  const [selectedCarId, setSelectedCarId] = useState('');
-  const [dates, setDates] = useState({ start: '', end: '', duration: 36 });
-  const [advance, setAdvance] = useState(0);
+  const [clientSearch, setClientSearch] = useState('');
+  const [selectedCarId, setSelectedCarId] = useState(preSelectedCarId || '');
+  const [carSearch, setCarSearch] = useState('');
+  
+  // Offer Details
+  const [dates, setDates] = useState({ start: new Date().toISOString().split('T')[0], duration: 36 });
+  const [customAdvance, setCustomAdvance] = useState(0);
+  const [customKasko, setCustomKasko] = useState<number | null>(null);
+  const [rateAdjustment, setRateAdjustment] = useState(0);
+  const [selectedOffer, setSelectedOffer] = useState<any>(null);
+  const [showClientList, setShowClientList] = useState(false);
+  const [showCarList, setShowCarList] = useState(false);
+  const [showClientError, setShowClientError] = useState(false);
 
   const myClients = clients.filter(c => c.subagentId === currentAgent.id);
+  const filteredClients = myClients.filter(c => c.name.toLowerCase().includes(clientSearch.toLowerCase()));
+  const filteredCars = fleet.filter(c => 
+    (c.brand + ' ' + c.model + ' ' + c.vehicleCode).toLowerCase().includes(carSearch.toLowerCase())
+  );
+
+  // Sync pre-selection
+  useEffect(() => {
+    if (preSelectedCarId) {
+        setSelectedCarId(preSelectedCarId);
+        const car = fleet.find(c => c.id === preSelectedCarId);
+        if (car) {
+            setCarSearch(`${car.brand} ${car.model}`);
+            if (car.offers && car.offers.length > 0) setSelectedOffer(car.offers[0]);
+        }
+    } else {
+        setSelectedCarId('');
+        setCarSearch('');
+        setSelectedOffer(null);
+    }
+  }, [preSelectedCarId, fleet]);
 
   const getPricingInfo = () => {
     const car = fleet.find(c => c.id === selectedCarId);
-    if (!car) return { monthlyRate: 0, total: 0 };
+    if (!car && !carSearch) return { monthlyRate: 0, total: 0, rca: 0, kasko: 0, theft: 0, commission: 0 };
     
-    let multiplier = 1.0;
-    if (dates.duration === 12) multiplier = 1.0;
-    if (dates.duration === 24) multiplier = 0.9;
-    if (dates.duration === 36) multiplier = 0.85;
-    if (dates.duration === 48) multiplier = 0.8;
-    if (dates.duration === 60) multiplier = 0.75;
-
-    const baseMonthly = (car?.pricePerDay || 0) * 30;
-    const discountedMonthly = baseMonthly * multiplier;
-    const total = discountedMonthly * dates.duration;
+    // Default offer if not found
+    const defaultOffer = { monthlyRate: 450, rca: 250, kasko: 500, theft: 300, duration: 36, kms: 10000 };
+    const offer = selectedOffer || (car?.offers && car.offers[0]) || defaultOffer;
+    
+    const baseRate = offer.monthlyRate || 0;
+    const duration = offer.duration || 36;
+    const amortizedAdvance = customAdvance > 0 ? Math.round(customAdvance / duration) : 0;
+    const kaskoAdj = (customKasko !== null) ? (customKasko - (offer.kasko || 0)) / duration : 0;
+    
+    const finalMonthly = Math.max(0, baseRate - amortizedAdvance + (rateAdjustment || 0) + kaskoAdj);
     
     return { 
-        monthlyRate: Math.round(discountedMonthly), 
-        total: Math.round(total),
-        commission: Math.round(total * (currentAgent.commissionRate / 100))
+        monthlyRate: Math.round(finalMonthly), 
+        total: Math.round(finalMonthly * duration),
+        commission: Math.round(finalMonthly * duration * (currentAgent.commissionRate / 100)),
+        rca: offer.rca || 0,
+        kasko: customKasko !== null ? customKasko : (offer.kasko || 0),
+        theft: offer.theft || 0
     };
   };
 
   const pricing = getPricingInfo();
-  const currentPricing = {
-    monthlyRate: pricing.monthlyRate || 0,
-    total: pricing.total || 0,
-    commission: pricing.commission || 0
+
+  const handleCreate = () => {
+    if (!selectedClientId) {
+        setShowClientError(true);
+        return;
+    }
+    if (!selectedCarId && !carSearch) {
+        alert("Seleziona un veicolo");
+        return;
+    }
+    setStep(2);
   };
 
-  const handleCreateContract = () => {
-    if (!selectedClientId || !selectedCarId || !dates.start) return;
-
-    const startDate = new Date(dates.start);
-    const endDate = new Date(startDate);
-    endDate.setMonth(startDate.getMonth() + dates.duration);
-
-    const newContract: Contract = {
-      id: `CNT-${Date.now()}`,
-      agentId: currentAgent.id,
-      clientId: selectedClientId,
-      carId: selectedCarId,
-      startDate: dates.start,
-      endDate: endDate.toISOString().split('T')[0],
-      totalAmount: currentPricing.total,
-      commissionAmount: currentPricing.commission,
-      status: 'Attivo',
-      signedDate: new Date().toISOString(),
-      nextPaymentDate: new Date(startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate()).toISOString().split('T')[0]
-    };
-
-    createContract(newContract);
-    setStep(3);
+  const handleConfirm = () => {
+    try {
+        const newContract: Contract = {
+          id: `PREV-${Date.now()}`,
+          agentId: currentAgent.id,
+          clientId: selectedClientId,
+          carId: selectedCarId || 'MANUAL',
+          startDate: dates.start,
+          endDate: '', 
+          totalAmount: pricing.total || 0,
+          commissionAmount: pricing.commission || 0,
+          status: 'In Attesa',
+          signedDate: new Date().toISOString()
+        };
+        createContract(newContract);
+        setStep(3);
+        if (onCarSelected) onCarSelected();
+    } catch (err) {
+        console.error("Error confirming contract:", err);
+        alert("Si è verificato un errore durante il salvataggio.");
+    }
   };
 
   return (
-    <div className="h-full overflow-y-auto pb-24 p-5">
-      <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-        <PenTool className="w-6 h-6 text-indigo-600" /> Contratto
-      </h3>
+    <div className="h-full flex flex-col bg-[#F8FAFC]">
+        {/* Error Modal */}
+        {showClientError && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                <div className="bg-white rounded-[40px] p-8 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-300 text-center space-y-6">
+                    <div className="w-20 h-20 bg-amber-50 rounded-[30px] flex items-center justify-center mx-auto">
+                        <Info className="w-10 h-10 text-amber-500" />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-black text-slate-900 uppercase italic">Cliente non selezionato</h3>
+                        <p className="text-slate-400 font-bold text-sm mt-2">Per procedere devi selezionare un cliente esistente dal database. Se il cliente è nuovo, registralo prima nell'apposita sezione.</p>
+                    </div>
+                    <button 
+                        onClick={() => setShowClientError(false)}
+                        className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-widest text-xs"
+                    >
+                        Ho capito
+                    </button>
+                </div>
+            </div>
+        )}
+      {/* Step Header */}
+      <div className="bg-white px-6 py-5 flex justify-center items-center border-b relative">
+         <div className="flex items-center gap-3">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black transition-all ${step >= 1 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-slate-100 text-slate-400'}`}>1</div>
+            <div className={`w-10 h-0.5 ${step >= 2 ? 'bg-indigo-600' : 'bg-slate-100'}`}></div>
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black transition-all ${step >= 2 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-slate-100 text-slate-400'}`}>2</div>
+            <div className={`w-10 h-0.5 ${step >= 3 ? 'bg-indigo-600' : 'bg-slate-100'}`}></div>
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black transition-all ${step >= 3 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-slate-100 text-slate-400'}`}>3</div>
+         </div>
+      </div>
 
-      {step === 1 && (
-        <div className="space-y-5">
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">1. Seleziona Tuo Cliente</label>
-            <select className="w-full p-3 bg-slate-50 rounded-xl border-none outline-none text-sm font-bold text-slate-700" value={selectedClientId} onChange={e => setSelectedClientId(e.target.value)}>
-              <option value="">-- Miei Clienti Portfolio --</option>
-              {myClients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
+      <div className="flex-1 overflow-y-auto p-6 pb-32 space-y-6">
+        {step === 1 && (
+          <>
+            {/* Sezione Cliente */}
+            <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
+                    <User className="w-4 h-4 text-indigo-500" /> Cliente
+                </label>
+                <div className="relative group">
+                    <Search className="absolute left-4 top-4 w-4 h-4 text-slate-300" />
+                    <input 
+                        type="text" 
+                        placeholder="Cerca cliente o scrivi nome..." 
+                        className="w-full p-4 pl-12 pr-10 bg-white rounded-2xl shadow-sm border border-slate-100 outline-none font-bold text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                        value={clientSearch}
+                        onFocus={() => setShowClientList(true)}
+                        onChange={e => {
+                            setClientSearch(e.target.value);
+                            setShowClientList(true);
+                            const found = myClients.find(c => c.name.toLowerCase() === e.target.value.toLowerCase());
+                            if (found) setSelectedClientId(found.id);
+                            else setSelectedClientId('');
+                        }}
+                    />
+                    <ChevronRight 
+                        className={`absolute right-4 top-5 w-4 h-4 text-slate-300 transition-transform cursor-pointer ${showClientList ? '-rotate-90' : 'rotate-90'}`} 
+                        onClick={() => setShowClientList(!showClientList)}
+                    />
+                    {showClientList && (clientSearch || showClientList) && (clientSearch ? filteredClients : myClients).length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-2">
+                            {(clientSearch ? filteredClients : myClients).map(c => (
+                                <div key={c.id} onClick={() => { setSelectedClientId(c.id); setClientSearch(c.name); setShowClientList(false); }} className="p-4 hover:bg-slate-50 cursor-pointer flex justify-between items-center border-b border-slate-50 last:border-none">
+                                    <span className="font-bold text-sm text-slate-700">{c.name}</span>
+                                    <span className="text-[9px] font-black text-indigo-500 uppercase">{c.type}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
 
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">2. Seleziona Auto</label>
-            <select className="w-full p-3 bg-slate-50 rounded-xl border-none outline-none text-sm" value={selectedCarId} onChange={e => setSelectedCarId(e.target.value)}>
-              <option value="">-- Veicolo Disponibile --</option>
-              {fleet.filter(c => c.status === CarStatus.AVAILABLE).map(c => (
-                <option key={c.id} value={c.id}>{c.brand} {c.model} - {c.vehicleCode}</option>
-              ))}
-            </select>
-          </div>
+            {/* Sezione Veicolo */}
+            <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 ml-1">
+                    <CarIcon className="w-4 h-4 text-indigo-500" /> Veicolo
+                </label>
+                <div className="relative">
+                    <Search className="absolute left-4 top-4 w-4 h-4 text-slate-300" />
+                    <input 
+                        type="text" 
+                        placeholder="Cerca marca, modello o codice..." 
+                        className="w-full p-4 pl-12 pr-10 bg-white rounded-2xl shadow-sm border border-slate-100 outline-none font-bold text-slate-900 text-sm focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                        value={carSearch}
+                        onFocus={() => setShowCarList(true)}
+                        onChange={e => {
+                            setCarSearch(e.target.value);
+                            setShowCarList(true);
+                            const found = fleet.find(c => (c.brand + ' ' + c.model).toLowerCase() === e.target.value.toLowerCase() || c.vehicleCode.toLowerCase() === e.target.value.toLowerCase());
+                            if (found) {
+                                setSelectedCarId(found.id);
+                                if (found.offers && found.offers.length > 0) setSelectedOffer(found.offers[0]);
+                            } else {
+                                setSelectedCarId('');
+                            }
+                        }}
+                    />
+                    <ChevronRight 
+                        className={`absolute right-4 top-5 w-4 h-4 text-slate-300 transition-transform cursor-pointer ${showCarList ? '-rotate-90' : 'rotate-90'}`} 
+                        onClick={() => setShowCarList(!showCarList)}
+                    />
+                    {showCarList && (carSearch || showCarList) && (carSearch ? filteredCars : fleet).length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 max-h-60 overflow-y-auto animate-in fade-in slide-in-from-top-2">
+                            {(carSearch ? filteredCars : fleet).map(c => (
+                                <div key={c.id} onClick={() => { setSelectedCarId(c.id); setCarSearch(`${c.brand} ${c.model}`); if (c.offers && c.offers.length > 0) setSelectedOffer(c.offers[0]); setShowCarList(false); }} className="p-4 hover:bg-slate-50 cursor-pointer flex gap-4 items-center border-b border-slate-50 last:border-none">
+                                    <img src={c.image} className="w-12 h-8 object-cover rounded-lg bg-slate-100" alt="car" />
+                                    <div className="flex-1">
+                                        <p className="font-bold text-sm text-slate-800">{c.brand} {c.model}</p>
+                                        <p className="text-[9px] text-slate-400 font-black uppercase">Cod: {c.vehicleCode}</p>
+                                    </div>
+                                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
 
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">3. Configurazione Offerta</label>
-            <div className="space-y-4">
-              <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Seleziona Durata Contrattuale (Mesi)</span>
-                <div className="grid grid-cols-5 gap-2">
-                    {[12, 24, 36, 48, 60].map(m => (
+            {/* Parametri Commerciali */}
+            {carSearch && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                    <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 space-y-6">
+                        <div className="flex justify-between items-center mb-2">
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Opzioni Noleggio</h4>
+                            <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg">PROPOSTA LIVE</span>
+                        </div>
+
+                        {/* Scelta Offerta / Canone */}
+                        <div className="space-y-3">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider block ml-1">Seleziona Canone (Mesi/Km)</label>
+                            <div className="grid grid-cols-1 gap-2">
+                                {(fleet.find(c => c.id === selectedCarId)?.offers || []).slice(0, 4).map((off: any, i: number) => (
+                                    <button 
+                                        key={i} 
+                                        onClick={() => setSelectedOffer(off)}
+                                        className={`flex justify-between items-center p-4 rounded-2xl border-2 transition-all ${selectedOffer === off ? 'border-indigo-600 bg-indigo-50/30' : 'border-slate-50 bg-slate-50/50'}`}
+                                    >
+                                        <div className="text-left">
+                                            <span className={`text-[10px] font-black uppercase ${selectedOffer === off ? 'text-indigo-600' : 'text-slate-400'}`}>{off.duration} Mesi</span>
+                                            <p className="text-xs font-bold text-slate-900">{off.kms.toLocaleString()} Km/Anno</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className={`text-sm font-black ${selectedOffer === off ? 'text-indigo-600' : 'text-slate-700'}`}>€ {off.monthlyRate}</p>
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase">+ IVA</span>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Regolazioni Manuali */}
+                        <div className="space-y-4 pt-4 border-t border-slate-100">
+                             <div className="space-y-1.5">
+                                <span className="text-[9px] font-black text-slate-400 uppercase block ml-1">Anticipo (€)</span>
+                                <input type="number" className="w-full p-4 bg-slate-50 rounded-2xl font-black text-sm outline-none shadow-inner" value={customAdvance || ''} onChange={e => setCustomAdvance(Number(e.target.value))} />
+                             </div>
+                             <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase block ml-1">Kasko (€)</span>
+                                    <input type="number" className="w-full p-3 bg-slate-50 rounded-xl font-bold text-sm outline-none shadow-inner" placeholder={selectedOffer?.kasko?.toString()} value={customKasko || ''} onChange={e => setCustomKasko(Number(e.target.value))} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase block ml-1">Adj. Canone (+/- €)</span>
+                                    <input type="number" className="w-full p-3 bg-slate-50 rounded-xl font-bold text-sm outline-none shadow-inner text-indigo-600" value={rateAdjustment || ''} onChange={e => setRateAdjustment(Number(e.target.value))} />
+                                </div>
+                             </div>
+                        </div>
+                    </div>
+
+                    {/* Riepilogo Real-time */}
+                    <div className="bg-slate-900 rounded-[32px] p-6 text-white shadow-2xl shadow-indigo-100 flex justify-between items-center">
+                        <div>
+                            <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest block mb-1">Canone Mensile</span>
+                            <h4 className="text-3xl font-black italic">€ {pricing.monthlyRate.toLocaleString()}</h4>
+                            <p className="text-[8px] font-bold text-slate-400 uppercase mt-1">IVA Esclusa / {selectedOffer?.duration || 36} Mesi</p>
+                        </div>
+                        <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10">
+                            <Zap className="w-6 h-6 text-indigo-400" />
+                        </div>
+                    </div>
+                    
+                    <div className="flex justify-center pt-4">
                         <button 
-                            key={m} 
-                            onClick={() => setDates({...dates, duration: m})}
-                            className={`py-2 rounded-xl text-[10px] font-bold border-2 transition-all ${dates.duration === m ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-slate-50 border-slate-100 text-slate-400'}`}
+                            onClick={handleCreate} 
+                            className="px-12 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg active:scale-95 transition-all"
                         >
-                            {m}M
+                            Prossimo
                         </button>
-                    ))}
+                    </div>
                 </div>
-              </div>
-              
-              <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Anticipo / Deposito (€)</span>
-                <input 
-                    type="number" 
-                    placeholder="Es. 1500" 
-                    className="w-full p-4 bg-slate-50 rounded-2xl text-sm font-bold text-slate-900 outline-none" 
-                    value={advance || ''} 
-                    onChange={e => setAdvance(Number(e.target.value))} 
-                />
-              </div>
+            )}
+          </>
+        )}
 
-              {selectedCarId && (
-                  <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50 flex justify-between items-center">
-                     <div>
-                        <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tight">Canone Listino {dates.duration} Mesi</span>
-                        <div className="text-xl font-black text-indigo-700">€ {currentPricing.monthlyRate}</div>
-                     </div>
-                     <div className="text-right">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Totale Valore</span>
-                        <div className="text-sm font-bold text-slate-900">€ {currentPricing.total.toLocaleString()}</div>
-                     </div>
-                  </div>
-              )}
+        {step === 2 && (
+            <div className="space-y-6 animate-in slide-in-from-right duration-300">
+                <div className="bg-white rounded-[40px] p-8 shadow-sm border border-slate-100 space-y-8 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 opacity-50"></div>
+                    
+                    <div className="text-center -mt-6 mb-2">
+                        <h2 className="text-2xl font-black text-indigo-600 uppercase italic tracking-tighter">Preventivo Offerta</h2>
+                    </div>
+
+                    <div className="space-y-5">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400"><User className="w-5 h-5" /></div>
+                            <div>
+                                <p className="text-[8px] font-black text-slate-400 uppercase">Cliente</p>
+                                <p className="text-sm font-black text-slate-900">{clientSearch}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400"><CarIcon className="w-5 h-5" /></div>
+                            <div>
+                                <p className="text-[8px] font-black text-slate-400 uppercase">Veicolo</p>
+                                <p className="text-sm font-black text-slate-900">{carSearch}</p>
+                            </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-slate-100 space-y-4">
+                            <div>
+                                <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Durata Contrattuale</p>
+                                <p className="font-black text-slate-900 text-sm">{selectedOffer?.duration || 36} Mesi</p>
+                            </div>
+                            <div>
+                                <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Percorrenza Inclusa</p>
+                                <p className="font-black text-slate-900 text-sm">{selectedOffer?.kms?.toLocaleString()} Km/anno</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 pt-4 border-t border-slate-100">
+                             <div>
+                                <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Canone Base</p>
+                                <p className="text-sm font-bold text-slate-600">€ {selectedOffer?.monthlyRate}</p>
+                             </div>
+                             <div>
+                                <p className="text-[8px] font-black text-slate-400 uppercase mb-0.5">Anticipo Ammortizzato</p>
+                                <p className="text-sm font-bold text-red-500">- € {customAdvance > 0 ? Math.round(customAdvance / (selectedOffer?.duration || 36)) : 0}</p>
+                             </div>
+                             <div className="pt-4 border-t border-slate-200">
+                                <p className="text-[9px] font-black text-indigo-400 uppercase mb-0.5">Canone Finale</p>
+                                <p className="text-2xl font-black text-indigo-600 italic">€ {pricing.monthlyRate} <span className="text-[10px] uppercase font-bold text-slate-400 not-italic">+ IVA</span></p>
+                             </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <button onClick={() => setStep(1)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl text-[11px] font-black uppercase tracking-widest">Modifica</button>
+                        <button onClick={handleConfirm} className="flex-[1.5] py-4 bg-slate-900 text-white rounded-2xl text-[13px] font-black uppercase tracking-widest shadow-xl">Conferma e Invia</button>
+                    </div>
+                </div>
             </div>
-          </div>
+        )}
 
-          <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-            <label className="block text-xs font-bold text-slate-400 uppercase mb-2">3. Data Inizio Contratto</label>
-            <input type="date" className="w-full p-3 bg-slate-50 rounded-xl text-xs font-bold" value={dates.start} onChange={e => setDates({ ...dates, start: e.target.value })} />
-          </div>
-
-          <button
-            onClick={() => setStep(2)}
-            disabled={!selectedClientId || !selectedCarId || !dates.start}
-            className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold shadow-lg disabled:opacity-50"
-          >
-            Genera Anteprima
-          </button>
-        </div>
-      )}
-
-      {step === 2 && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 animate-in slide-in-from-right">
-          <h4 className="font-bold text-lg mb-4 border-b pb-2">Riepilogo Contratto</h4>
-          <div className="space-y-3 text-sm text-slate-600 mb-6">
-            <p><span className="font-bold text-slate-900">Cliente:</span> {clients.find(c => c.id === selectedClientId)?.name}</p>
-            <p><span className="font-bold text-slate-900">Auto:</span> {fleet.find(f => f.id === selectedCarId)?.brand} {fleet.find(f => f.id === selectedCarId)?.model}</p>
-            <p><span className="font-bold text-slate-900">Durata:</span> {dates.duration} Mesi</p>
-            
-            <div className="grid grid-cols-2 gap-3 mt-4">
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Quota Mensile</span>
-                    <span className="font-bold text-slate-900">€ {currentPricing.monthlyRate}</span>
+        {step === 3 && (
+            <div className="h-full flex flex-col items-center justify-center text-center space-y-6 py-12 animate-in zoom-in duration-500">
+                <div className="w-24 h-24 bg-emerald-100 rounded-[40px] flex items-center justify-center shadow-lg shadow-emerald-100">
+                    <Check className="w-12 h-12 text-emerald-600" />
                 </div>
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                    <span className="block text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">Tua Provvigione</span>
-                    <span className="font-bold text-indigo-600">€ {currentPricing.commission}</span>
+                <div>
+                    <h3 className="text-3xl font-black text-slate-900 italic">Perfetto!</h3>
+                    <p className="text-slate-400 font-bold mt-2">Il preventivo è stato registrato correttamente.</p>
                 </div>
+                <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100 w-full max-w-xs">
+                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Prossimi Passaggi</p>
+                     <div className="space-y-4">
+                         <button className="w-full py-3 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-black flex items-center justify-center gap-2">
+                            <Share2 className="w-4 h-4" /> Condividi Link
+                         </button>
+                         <button className="w-full py-3 bg-slate-50 text-slate-600 rounded-xl text-xs font-black flex items-center justify-center gap-2">
+                            <Printer className="w-4 h-4" /> Genera PDF
+                         </button>
+                     </div>
+                </div>
+                <button onClick={() => { setStep(1); setSelectedCarId(''); setCarSearch(''); setClientSearch(''); setSelectedClientId(''); }} className="text-indigo-600 font-black text-sm hover:underline pt-4">Crea un altro preventivo</button>
             </div>
-          </div>
-
-          <div className="flex gap-3">
-            <button onClick={() => setStep(1)} className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-bold">Indietro</button>
-            <button onClick={handleCreateContract} className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold">Firma e Attiva</button>
-          </div>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="flex flex-col items-center justify-center pt-10 animate-in zoom-in">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-4">
-            <CheckCircle className="w-10 h-10 text-green-600" />
-          </div>
-          <h3 className="text-xl font-bold text-slate-900">Contratto Attivato!</h3>
-          <button onClick={() => { setStep(1); setSelectedCarId(''); setSelectedClientId(''); }} className="mt-8 bg-slate-900 text-white px-8 py-3 rounded-xl font-bold">Nuovo Contratto</button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
@@ -239,9 +439,17 @@ const MobileAddClient = ({ currentAgent, onClose }: { currentAgent: Agent, onClo
     onClose();
   };
 
+  const ITALIAN_PROVINCES = [
+    'AG','AL','AN','AO','AR','AP','AT','AV','BA','BT','BL','BN','BG','BI','BO','BZ','BS','BR','CA','CL','CB','CE','CZ','CH','CO','CS','CR','KR','CN','EN','FM','FE','FI','FG','FC','GE','GO','GR','IM','IS','SP','LT','LE','LC','LI','LO','LU','MC','MN','MS','MT','ME','MI','MO','MB','NA','NO','NU','OR','PD','PA','PR','PV','PG','PU','PE','PC','PI','PT','PN','PZ','PO','RG','RA','RC','RE','RI','RN','RM','RO','SA','SS','SV','SI','SR','SO','TA','TE','TR','TO','TP','TN','TV','TS','UD','VA','VE','VB','VC','VR','VV','VI','VT'
+  ].sort();
+
+  const MAJOR_CITIES = [
+    'Roma', 'Milano', 'Napoli', 'Torino', 'Palermo', 'Genova', 'Bologna', 'Firenze', 'Bari', 'Catania', 'Venezia', 'Verona', 'Messina', 'Padova', 'Trieste', 'Taranto', 'Brescia', 'Parma', 'Prato', 'Modena', 'Reggio Calabria', 'Reggio Emilia', 'Perugia', 'Ravenna', 'Livorno', 'Cagliari', 'Foggia', 'Rimini', 'Salerno', 'Ferrara', 'Sassari', 'Latina', 'Giugliano in Campania', 'Monza', 'Siracusa', 'Pescara', 'Bergamo', 'Forlì', 'Trento', 'Vicenza', 'Terni', 'Bolzano', 'Novara', 'Piacenza', 'Ancona', 'Andria', 'Arezzo', 'Udine', 'Cesena', 'Lecce'
+  ].sort();
+
   return (
-    <div className="absolute inset-0 bg-white z-[70] p-5 mt-12 overflow-y-auto animate-in slide-in-from-bottom pb-20">
-      <div className="flex justify-between items-center mb-6">
+    <div className="absolute inset-0 bg-white z-[70] p-5 overflow-y-auto animate-in slide-in-from-bottom pb-32">
+      <div className="flex justify-between items-center mb-6 pt-4">
         <h3 className="text-xl font-bold">Nuovo Cliente</h3>
         <button onClick={onClose} className="p-2 bg-slate-100 rounded-full"><X className="w-4 h-4" /></button>
       </div>
@@ -252,15 +460,47 @@ const MobileAddClient = ({ currentAgent, onClose }: { currentAgent: Agent, onClo
             <button onClick={() => setFormData({...formData, type: 'Azienda'})} className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${formData.type === 'Azienda' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}>Azienda</button>
         </div>
 
-        <input type="text" placeholder="Nome Completo" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-sm" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-        <div className="grid grid-cols-2 gap-3">
-            <input type="email" placeholder="Email" className="p-4 bg-slate-50 rounded-2xl outline-none text-sm" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-            <input type="tel" placeholder="Cellulare" className="p-4 bg-slate-50 rounded-2xl outline-none text-sm" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+        <div className="space-y-3">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Anagrafica</label>
+            <input type="text" placeholder="Nome Completo / Ragione Sociale" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-base font-medium" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+            
+            <div className="grid grid-cols-2 gap-3">
+                <input type="email" placeholder="Email" className="p-4 bg-slate-50 rounded-2xl outline-none text-base font-medium" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                <input type="tel" placeholder="Cellulare" className="p-4 bg-slate-50 rounded-2xl outline-none text-base font-medium" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+            </div>
+
+            {formData.type === 'Privato' ? (
+                <input type="text" placeholder="Codice Fiscale" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-base uppercase font-mono font-medium" value={formData.fiscalCode} onChange={e => setFormData({...formData, fiscalCode: e.target.value})} />
+            ) : (
+                <input type="text" placeholder="Partita IVA" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-base font-mono font-medium" value={formData.vatNumber} onChange={e => setFormData({...formData, vatNumber: e.target.value})} />
+            )}
         </div>
 
-        <div className="flex gap-3 mt-4">
+        <div className="space-y-3 pt-2">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Sede / Residenza</label>
+            <input type="text" placeholder="Indirizzo e Civico" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-base font-medium" value={formData.street} onChange={e => setFormData({...formData, street: e.target.value})} />
+            
+            <div className="grid grid-cols-2 gap-3">
+                <div className="relative">
+                    <select className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-base font-medium appearance-none" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})}>
+                        <option value="">Città...</option>
+                        {MAJOR_CITIES.map(city => <option key={city} value={city}>{city}</option>)}
+                    </select>
+                </div>
+                <input type="text" placeholder="CAP" className="p-4 bg-slate-50 rounded-2xl outline-none text-base font-medium" value={formData.zip} onChange={e => setFormData({...formData, zip: e.target.value})} />
+            </div>
+            
+            <input type="text" placeholder="Provincia" className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-base font-medium uppercase" value={formData.province} onChange={e => setFormData({...formData, province: e.target.value})} />
+        </div>
+
+        <div className="space-y-3 pt-2">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Altre Informazioni</label>
+            <textarea placeholder="Note aggiuntive..." rows={3} className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-base resize-none" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} />
+        </div>
+
+        <div className="flex gap-3 pt-4">
           <button onClick={onClose} className="flex-1 py-4 bg-slate-100 rounded-2xl font-bold text-slate-600 text-sm">Annulla</button>
-          <button onClick={handleSave} className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-bold text-sm shadow-lg">Salva Cliente</button>
+          <button onClick={handleSave} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-indigo-100">Salva Cliente</button>
         </div>
       </div>
     </div>
@@ -270,40 +510,151 @@ const MobileAddClient = ({ currentAgent, onClose }: { currentAgent: Agent, onClo
 // 3. Vehicle Details Mobile
 const MobileVehicleDetails = ({ car, onClose, onStartQuote }: { car: any, onClose: () => void, onStartQuote: () => void }) => {
     return (
-      <div className="absolute inset-0 bg-white z-50 overflow-y-auto animate-in slide-in-from-bottom">
+      <div className="absolute inset-0 bg-white z-50 overflow-y-auto animate-in slide-in-from-bottom pb-20">
         <div className="relative">
-          <img src={car.image} className="w-full h-64 object-cover" alt="car" />
+          <img src={car.image} className="w-full h-72 object-cover" alt="car" />
           <button onClick={onClose} className="absolute top-10 left-5 p-2 bg-black/40 backdrop-blur-md rounded-full text-white">
             <X className="w-5 h-5" />
           </button>
+          <div className="absolute top-10 right-5 px-4 py-2 bg-indigo-600 backdrop-blur-md rounded-full text-white text-[10px] font-black uppercase tracking-widest shadow-lg">
+            {car.status}
+          </div>
         </div>
         
-        <div className="p-6 -mt-8 bg-white rounded-t-[40px] relative">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">{car.brand} {car.model}</h2>
-              <p className="text-slate-500 font-medium">Cod: {car.vehicleCode}</p>
-            </div>
-            <div className={`px-3 py-1 rounded-full text-xs font-bold ${car.status === CarStatus.AVAILABLE ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-              {car.status}
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4 mb-8">
-            <div className="bg-slate-50 p-4 rounded-3xl">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Carburante</span>
-              <span className="text-sm font-bold text-slate-900">{car.fuelType}</span>
-            </div>
-            <div className="bg-slate-50 p-4 rounded-3xl">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block mb-1">Cambio</span>
-              <span className="text-sm font-bold text-slate-900">{car.transmission}</span>
+        <div className="p-6 -mt-10 bg-white rounded-t-[40px] relative shadow-[0_-20px_40px_rgba(0,0,0,0.1)]">
+          <div className="flex flex-col mb-8">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight leading-tight">{car.brand} {car.model}</h2>
+            <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-tighter">Cod. {car.vehicleCode}</span>
+                <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
+                <span className="text-xs font-bold text-indigo-500 uppercase tracking-tighter">Targa: {car.plate || 'In arrivo'}</span>
             </div>
           </div>
           
-          <div className="flex gap-3 sticky bottom-4">
-            <button onClick={onClose} className="flex-[0.5] bg-slate-100 text-slate-600 py-4 rounded-3xl font-bold">Indietro</button>
-            <button onClick={onStartQuote} className="flex-1 bg-slate-900 text-white py-4 rounded-3xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all">
-                <Sparkles className="w-4 h-4 text-indigo-400" /> Preventivo
+          <div className="grid grid-cols-2 gap-3 mb-8">
+            <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm"><Fuel className="w-5 h-5 text-indigo-500" /></div>
+              <div>
+                <span className="text-[9px] text-slate-400 font-bold uppercase block">Motore</span>
+                <span className="text-xs font-black text-slate-900">{car.fuelType}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm"><Settings className="w-5 h-5 text-indigo-500" /></div>
+              <div>
+                <span className="text-[9px] text-slate-400 font-bold uppercase block">Cambio</span>
+                <span className="text-xs font-black text-slate-900">{car.transmission}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm"><Calendar className="w-5 h-5 text-indigo-500" /></div>
+              <div>
+                <span className="text-[9px] text-slate-400 font-bold uppercase block">Anno</span>
+                <span className="text-xs font-black text-slate-900">{car.year || '2024'}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm"><Gauge className="w-5 h-5 text-indigo-500" /></div>
+              <div>
+                <span className="text-[9px] text-slate-400 font-bold uppercase block">Stato</span>
+                <span className="text-xs font-black text-slate-900">Nuovo</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-8">
+              <div>
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 pl-1">
+                    <Info className="w-4 h-4 text-indigo-500" /> Caratteristiche
+                </h4>
+                <div className="bg-slate-50 rounded-[32px] p-6 space-y-6 border border-slate-100/50">
+                    <div>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase block mb-1 tracking-widest">Colore Esterno</span>
+                        <span className="text-sm font-black text-slate-900 leading-tight">{car.externalColor || 'N.D.'}</span>
+                    </div>
+                    <div className="pt-4 border-t border-slate-200/40">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase block mb-1 tracking-widest">Finiture Interni</span>
+                        <span className="text-sm font-black text-slate-900 leading-tight">{car.internalColor || 'N.D.'}</span>
+                    </div>
+                    <div className="pt-4 border-t border-slate-200/40">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase block mb-1 tracking-widest">Disponibilità Veicolo</span>
+                        <span className="text-sm font-black text-emerald-600">{car.expectedDelivery || 'Pronta Consegna'}</span>
+                    </div>
+                </div>
+              </div>
+
+              {car.optional && (
+                <div>
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 pl-1">
+                        <Tag className="w-4 h-4 text-indigo-500" /> Equipaggiamento
+                    </h4>
+                    <div className="bg-indigo-50/30 rounded-[32px] p-6 border border-indigo-100/30">
+                        <p className="text-xs font-medium text-slate-600 leading-relaxed italic">
+                            {car.optional}
+                        </p>
+                    </div>
+                </div>
+              )}
+
+              {car.offers && car.offers.length > 0 && (
+                <div>
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 pl-1">
+                        <Euro className="w-4 h-4 text-indigo-500" /> Canoni Indicativi
+                    </h4>
+                    <div className="space-y-2">
+                        {car.offers.slice(0, 6).map((off: any, i: number) => (
+                            <details key={i} className="group bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm transition-all">
+                                <summary className="flex justify-between items-center p-4 cursor-pointer list-none outline-none">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center">
+                                            <Calendar className="w-4 h-4 text-indigo-600" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-black text-slate-900">{off.duration} Mesi</p>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">{off.kms.toLocaleString()} Km / Anno</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-right">
+                                            <p className="text-sm font-black text-indigo-600">€ {off.monthlyRate}</p>
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 text-slate-300 group-open:rotate-90 transition-transform" />
+                                    </div>
+                                </summary>
+                                <div className="px-4 pb-5 pt-2 border-t border-slate-50 grid grid-cols-2 gap-x-6 gap-y-4 bg-slate-50/50">
+                                    <div>
+                                        <span className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">Anticipo</span>
+                                        <span className="text-xs font-black text-slate-700">€ {off.advance || 0}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">Assic. Kasko</span>
+                                        <span className="text-xs font-black text-slate-700">€ {off.kasko || 0}</span>
+                                    </div>
+                                    <div className="pt-2 border-t border-slate-200/40">
+                                        <span className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">Furto e Incendio</span>
+                                        <span className="text-xs font-black text-slate-700">€ {off.theft || 0}</span>
+                                    </div>
+                                    <div className="pt-2 border-t border-slate-200/40">
+                                        <span className="text-[8px] font-bold text-slate-400 uppercase block mb-0.5">RCA Base</span>
+                                        <span className="text-xs font-black text-slate-700">€ {off.rca || 0}</span>
+                                    </div>
+                                    <div className="col-span-2 bg-indigo-600 p-3 rounded-xl text-center mt-2 shadow-lg shadow-indigo-100">
+                                        <span className="text-[10px] font-black text-white uppercase tracking-widest">Offerta Tutto Incluso</span>
+                                    </div>
+                                </div>
+                            </details>
+                        ))}
+                    </div>
+                </div>
+              )}
+          </div>
+          
+          <div className="flex justify-center pt-10 pb-8">
+            <button 
+                onClick={onStartQuote} 
+                className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl active:scale-95 transition-all"
+            >
+                Preventivatore
             </button>
           </div>
         </div>
@@ -501,6 +852,7 @@ const AgentMobileApp: React.FC = () => {
   const [viewingCar, setViewingCar] = useState<any | null>(null);
   const [isNormalQuoteActive, setIsNormalQuoteActive] = useState(false);
   const [showAddClient, setShowAddClient] = useState(false);
+  const [preSelectedCarId, setPreSelectedCarId] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -546,21 +898,43 @@ const AgentMobileApp: React.FC = () => {
 
   const content = (
     <>
-      {/* Header */}
-      <div className="bg-white px-5 py-4 flex justify-between items-center z-10 border-b">
-        <div>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight">RentSync<span className="text-indigo-600">Pro</span></h1>
-          <p className="text-[10px] text-slate-400 uppercase font-black">Terminale Agente</p>
+      {/* Top Navigation Bar */}
+      <div className="sticky top-0 bg-white/80 backdrop-blur-md px-6 py-5 flex justify-between items-center z-50 border-b border-slate-100">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100">
+            <CarIcon className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-black text-slate-900 tracking-tighter leading-none">RentSync<span className="text-indigo-600">Pro</span></h1>
+            <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-1">Terminal {currentAgent.nickname}</p>
+          </div>
         </div>
-        <div className="w-8 h-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-bold">{currentAgent.nickname.charAt(0).toUpperCase()}</div>
+        <button 
+          onClick={() => setActiveTab('profile')} 
+          className="w-10 h-10 bg-white border border-slate-200 rounded-2xl flex items-center justify-center text-slate-900 font-black shadow-sm active:scale-95 transition-all"
+        >
+            {currentAgent.nickname.charAt(0).toUpperCase()}
+        </button>
       </div>
 
       <div className="flex-1 bg-[#F2F4F7] overflow-hidden relative">
         {activeTab === 'home' && (
           <div className="h-full overflow-y-auto pb-24 p-5 space-y-5">
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              <button onClick={() => setShowAddClient(true)} className="flex-shrink-0 bg-slate-900 text-white px-5 py-3 rounded-2xl text-xs font-bold flex items-center gap-1.5"><Plus className="w-4 h-4" /> Cliente</button>
-              <button onClick={() => setActiveTab('contract')} className="flex-shrink-0 bg-white text-slate-700 px-5 py-3 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm"><PenTool className="w-4 h-4 text-indigo-600" /> Contratto</button>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setShowAddClient(true)} 
+                className="flex-1 bg-slate-900 text-white p-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
+              >
+                <Plus className="w-5 h-5" />
+                <span className="text-[11px] uppercase tracking-wider">Nuovo Cliente</span>
+              </button>
+              <button 
+                onClick={() => setActiveTab('contract')} 
+                className="flex-1 bg-white text-slate-800 p-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-sm border border-slate-100 active:scale-95 transition-all"
+              >
+                <PenTool className="w-5 h-5 text-indigo-600" />
+                <span className="text-[11px] uppercase tracking-wider">Nuovo Preventivo</span>
+              </button>
             </div>
             
             <div className="flex justify-between items-center px-1">
@@ -586,7 +960,7 @@ const AgentMobileApp: React.FC = () => {
         )}
 
         {activeTab === 'quote' && <MobileQuote />}
-        {activeTab === 'contract' && <MobileContract currentAgent={currentAgent} />}
+        {activeTab === 'contract' && <MobileContract currentAgent={currentAgent} preSelectedCarId={preSelectedCarId} onCarSelected={() => setPreSelectedCarId(null)} />}
         {activeTab === 'clients' && <MobileClientsTab currentAgent={currentAgent} />}
         {activeTab === 'profile' && (
           <div className="p-6 overflow-y-auto pb-24 h-full space-y-6">
@@ -604,17 +978,28 @@ const AgentMobileApp: React.FC = () => {
         )}
 
         {showAddClient && <MobileAddClient currentAgent={currentAgent} onClose={() => setShowAddClient(false)} />}
-        {viewingCar && <MobileVehicleDetails car={viewingCar} onClose={() => setViewingCar(null)} onStartQuote={() => setIsNormalQuoteActive(true)} />}
+        {viewingCar && <MobileVehicleDetails car={viewingCar} onClose={() => setViewingCar(null)} onStartQuote={() => { setPreSelectedCarId(viewingCar.id); setActiveTab('contract'); setViewingCar(null); }} />}
         {isNormalQuoteActive && viewingCar && <MobileNormalQuote car={viewingCar} currentAgent={currentAgent} onClose={() => { setIsNormalQuoteActive(false); setViewingCar(null); }} />}
       </div>
 
-      {/* Bottom Nav */}
-      <div className={`bg-white border-t flex justify-around items-center py-4 pb-8 z-40 ${isStandalone ? '' : 'px-4'}`}>
-        <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 ${activeTab === 'home' ? 'text-indigo-600' : 'text-slate-400'}`}><Home className="w-6 h-6" /><span className="text-[9px] font-bold">Home</span></button>
-        <button onClick={() => setActiveTab('quote')} className={`flex flex-col items-center gap-1 ${activeTab === 'quote' ? 'text-indigo-600' : 'text-slate-400'}`}><Sparkles className="w-6 h-6" /><span className="text-[9px] font-bold">AI</span></button>
-        <button onClick={() => setActiveTab('contract')} className={`flex flex-col items-center gap-1 ${activeTab === 'contract' ? 'text-indigo-600' : 'text-slate-400'}`}><PenTool className="w-6 h-6" /><span className="text-[9px] font-bold">Patto</span></button>
-        <button onClick={() => setActiveTab('clients')} className={`flex flex-col items-center gap-1 ${activeTab === 'clients' ? 'text-indigo-600' : 'text-slate-400'}`}><Building2 className="w-6 h-6" /><span className="text-[9px] font-bold">Clienti</span></button>
-        <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center gap-1 ${activeTab === 'profile' ? 'text-indigo-600' : 'text-slate-400'}`}><User className="w-6 h-6" /><span className="text-[9px] font-bold">Profilo</span></button>
+      {/* Floating Island Bottom Nav */}
+      <div className={`${isStandalone ? 'fixed' : 'absolute'} bottom-8 left-6 right-6 bg-slate-900/95 backdrop-blur-xl flex justify-around items-center py-4 rounded-[32px] z-[100] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/10`}>
+        <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'home' ? 'text-indigo-400 scale-110' : 'text-slate-400 hover:text-slate-200'}`}>
+          <Home className="w-6 h-6" />
+          <span className="text-[8px] font-black uppercase tracking-tighter">Home</span>
+        </button>
+        <button onClick={() => { setActiveTab('contract'); setPreSelectedCarId(null); }} className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'contract' ? 'text-indigo-400 scale-110' : 'text-slate-400 hover:text-slate-200'}`}>
+          <PenTool className="w-6 h-6" />
+          <span className="text-[8px] font-black uppercase tracking-tighter">Preventivo</span>
+        </button>
+        <button onClick={() => setActiveTab('clients')} className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'clients' ? 'text-indigo-400 scale-110' : 'text-slate-400 hover:text-slate-200'}`}>
+          <Building2 className="w-6 h-6" />
+          <span className="text-[8px] font-black uppercase tracking-tighter">Clienti</span>
+        </button>
+        <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'profile' ? 'text-indigo-400 scale-110' : 'text-slate-400 hover:text-slate-200'}`}>
+          <User className="w-6 h-6" />
+          <span className="text-[8px] font-black uppercase tracking-tighter">Profilo</span>
+        </button>
       </div>
     </>
   );

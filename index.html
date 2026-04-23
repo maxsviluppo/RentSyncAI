@@ -11,28 +11,14 @@
   <meta name="theme-color" content="#4f46e5" />
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Custom scrollbar for webkit */
+    /* Hide scrollbar but keep functionality */
     ::-webkit-scrollbar {
-      width: 6px;
-      /* Più sottile */
-      height: 6px;
+      display: none;
     }
 
-    ::-webkit-scrollbar-track {
-      background: #f1f5f9;
-      /* No arrows implied by lack of ::alert-button pseudo elements and simple track */
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #4f46e5;
-      /* Blu indaco del logo */
-      border-radius: 99px;
-      /* Arrotondato */
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: #3730a3;
-      /* Blu scuro hover */
+    body {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
     }
   </style>
 </head>

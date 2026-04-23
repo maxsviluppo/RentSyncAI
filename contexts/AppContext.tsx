@@ -230,8 +230,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     contract.checkOutPhotos = [];
 
     setContracts(prev => [...prev, contract]);
-    // Automatically update car status to RENTED
-    updateCarStatus(contract.carId, CarStatus.RENTED);
+    // Only update car status if it's a real car in the fleet
+    const carExists = fleet.some(c => c.id === contract.carId);
+    if (carExists) {
+      updateCarStatus(contract.carId, CarStatus.RENTED);
+    }
   };
 
   const addLead = (lead: MarketingLead) => {
