@@ -22,6 +22,8 @@ const QuoteGenerator: React.FC = () => {
   const [selectedOffer, setSelectedOffer] = useState<RentalOffer | null>(null);
   const [rentalType, setRentalType] = useState('Noleggio Lungo Termine (Manuale)');
   const [customAdvance, setCustomAdvance] = useState(0);
+  const [customKasko, setCustomKasko] = useState<number | null>(null);
+  const [rateAdjustment, setRateAdjustment] = useState(0);
   const [carSearch, setCarSearch] = useState('');
 
   // Smart Advisor State
@@ -46,7 +48,7 @@ const QuoteGenerator: React.FC = () => {
 
   const baseRate = selectedOffer ? selectedOffer.monthlyRate : (selectedCar ? (selectedCar.price || 0) : 0);
   const amortizedAdvance = (selectedOffer && customAdvance > 0) ? Math.round(customAdvance / selectedOffer.duration) : 0;
-  const baseTotal = Math.max(0, baseRate - amortizedAdvance);
+  const baseTotal = Math.max(0, baseRate - amortizedAdvance - rateAdjustment);
   
   const finalTotal = Math.round(Math.max(0, baseTotal - discount));
   const vat = Math.round(finalTotal * 0.22);
@@ -440,6 +442,37 @@ const QuoteGenerator: React.FC = () => {
                   )}
                 </div>
 
+                <div className="grid grid-cols-2 gap-6 mb-8 pb-8 border-b border-slate-100">
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-indigo-600 uppercase tracking-widest">Importo Kasco</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-indigo-400 text-lg">€</span>
+                      <input 
+                        type="number" 
+                        className="w-full p-4 pl-10 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 focus:bg-white outline-none font-black text-xl bg-slate-50/50 transition-all text-slate-800"
+                        placeholder={selectedOffer ? selectedOffer.kasko.toString() : "0"}
+                        value={customKasko ?? ''}
+                        onChange={e => setCustomKasko(e.target.value ? parseFloat(e.target.value) : null)}
+                      />
+                    </div>
+                    <div className="h-3"></div> {/* Visual balance */}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-indigo-600 uppercase tracking-widest">Diff. Rata</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-indigo-400 text-lg">€</span>
+                      <input 
+                        type="number" 
+                        className="w-full p-4 pl-10 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 focus:bg-white outline-none font-black text-xl bg-slate-50/50 transition-all text-slate-800"
+                        placeholder="0"
+                        value={rateAdjustment || ''}
+                        onChange={e => setRateAdjustment(parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <p className="text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter">Sottrae l'importo dal canone</p>
+                  </div>
+                </div>
+
                  {selectedCar?.offers && selectedCar.offers.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-slate-100">
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Offerta Commerciale</label>
@@ -681,12 +714,16 @@ const QuoteGenerator: React.FC = () => {
                                                 <span className="text-sm font-extrabold text-indigo-400">€ {(customAdvance || selectedOffer.advance).toLocaleString()}</span>
                                             </div>
                                             <div className="flex flex-col">
-                                                <span className="text-[8px] text-slate-500 font-black uppercase tracking-tighter mb-0.5">Kasko Ric.</span>
-                                                <span className="text-sm font-extrabold">€ {selectedOffer.kasko.toLocaleString()}</span>
-                                            </div>
-                                            <div className="flex flex-col">
                                                 <span className="text-[8px] text-slate-500 font-black uppercase tracking-tighter mb-0.5">RCA</span>
                                                 <span className="text-sm font-extrabold">€ {(selectedOffer.rca ?? 250).toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] text-slate-500 font-black uppercase tracking-tighter mb-0.5">Kasco</span>
+                                                <span className="text-sm font-extrabold text-white">€ {(customKasko ?? (selectedOffer?.kasko || 0)).toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] text-slate-500 font-black uppercase tracking-tighter mb-0.5">Furto</span>
+                                                <span className="text-sm font-extrabold">€ {(selectedOffer.theft || 0).toLocaleString()}</span>
                                             </div>
                                             <div className="flex flex-col">
                                                 <span className="text-[8px] text-slate-500 font-black uppercase tracking-tighter mb-0.5">Durata</span>
