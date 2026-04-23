@@ -21,6 +21,8 @@ const QuoteGenerator: React.FC = () => {
   const [customClientMode, setCustomClientMode] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<RentalOffer | null>(null);
   const [rentalType, setRentalType] = useState('Noleggio Lungo Termine (Manuale)');
+  const [customAdvance, setCustomAdvance] = useState(0);
+  const [carSearch, setCarSearch] = useState('');
 
   // Smart Advisor State
   const [driverProfile, setDriverProfile] = useState<DriverProfile>({
@@ -42,9 +44,9 @@ const QuoteGenerator: React.FC = () => {
   const end = endDate ? new Date(endDate) : today;
   const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
 
-  const baseTotal = selectedOffer 
-    ? selectedOffer.monthlyRate
-    : (selectedCar ? (selectedCar.price || 0) * days : 0);
+  const baseRate = selectedOffer ? selectedOffer.monthlyRate : (selectedCar ? (selectedCar.price || 0) : 0);
+  const amortizedAdvance = (selectedOffer && customAdvance > 0) ? Math.round(customAdvance / selectedOffer.duration) : 0;
+  const baseTotal = Math.max(0, baseRate - amortizedAdvance);
   
   const finalTotal = Math.round(Math.max(0, baseTotal - discount));
   const vat = Math.round(finalTotal * 0.22);
@@ -116,7 +118,27 @@ const QuoteGenerator: React.FC = () => {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto flex flex-col h-full overflow-hidden">
+    <div className="p-6 max-w-6xl mx-auto flex flex-col h-full overflow-hidden print:p-0 print:m-0 print:max-w-none print:bg-white print:overflow-visible">
+      {/* CSS per la stampa */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: A4;
+            margin: 0;
+          }
+          body {
+            background-color: white !important;
+            -webkit-print-color-adjust: exact;
+          }
+          .print-canvas {
+            width: 210mm !important;
+            height: 297mm !important;
+            padding: 1.5cm !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+          }
+        }
+      `}} />
       <div className="flex justify-between items-center mb-6 print:hidden">
         <h2 className="text-3xl font-bold text-slate-800 flex items-center gap-2">
           <FileText className="w-8 h-8 text-indigo-600" />
@@ -210,11 +232,29 @@ const QuoteGenerator: React.FC = () => {
 
               {mode === 'manual' && (
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 animate-in fade-in">
-                  <h3 className="font-bold text-lg mb-4 text-slate-700 flex items-center gap-2">
-                    <CarIcon className="w-5 h-5 text-indigo-500" /> Seleziona Veicolo
+                  <h3 className="font-bold text-lg mb-4 text-slate-700 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <CarIcon className="w-5 h-5 text-indigo-500" /> Veicolo
+                    </div>
+                    <div className="relative w-40">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3" />
+                        <input 
+                            type="text" 
+                            className="w-full text-xs pl-7 py-1.5 border rounded-full bg-slate-50 focus:bg-white transition-all"
+                            placeholder="Cerca marca o cod..."
+                            value={carSearch}
+                            onChange={e => setCarSearch(e.target.value)}
+                        />
+                    </div>
                   </h3>
-                  <div className="grid grid-cols-1 gap-3 max-h-60 overflow-y-auto">
-                    {fleet.map(car => (
+                  <div className="grid grid-cols-1 gap-3 max-h-60 overflow-y-auto pr-2">
+                    {fleet
+                        .filter(car => 
+                            car.brand.toLowerCase().includes(carSearch.toLowerCase()) || 
+                            car.model.toLowerCase().includes(carSearch.toLowerCase()) ||
+                            car.vehicleCode.toLowerCase().includes(carSearch.toLowerCase())
+                        )
+                        .map(car => (
                       <div
                         key={car.id}
                         onClick={() => setSelectedCar(car)}
@@ -381,18 +421,23 @@ const QuoteGenerator: React.FC = () => {
           {step === 2 && (
             <div className="space-y-6 animate-in slide-in-from-right duration-300">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                <h3 className="font-bold text-lg mb-4 text-slate-700 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-indigo-500" /> Periodo & Costi
-                </h3>
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Inizio</label>
-                    <input type="date" className="w-full p-2 border rounded-lg" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                <div className="mb-6 pb-6 border-b border-slate-100">
+                  <label className="block text-xs font-black text-indigo-600 uppercase mb-2 tracking-widest">Anticipo Personalizzato</label>
+                  <div className="relative">
+                    <input 
+                      type="number" 
+                      className="w-full p-3 pl-8 border-2 border-indigo-100 rounded-xl focus:border-indigo-500 outline-none font-bold text-lg bg-indigo-50/30"
+                      placeholder="Inserisci importo (es. 1200)"
+                      value={customAdvance || ''}
+                      onChange={e => setCustomAdvance(parseFloat(e.target.value) || 0)}
+                    />
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-indigo-400">€</span>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Fine</label>
-                    <input type="date" className="w-full p-2 border rounded-lg" value={endDate} onChange={e => setEndDate(e.target.value)} />
-                  </div>
+                  {customAdvance > 0 && selectedOffer && (
+                    <p className="mt-2 text-[10px] text-slate-500 italic">
+                      L'anticipo di €{customAdvance} riduce la rata di €{Math.round(customAdvance / selectedOffer.duration)}/mese ({selectedOffer.duration} mesi).
+                    </p>
+                  )}
                 </div>
 
                  {selectedCar?.offers && selectedCar.offers.length > 0 && (
@@ -420,30 +465,21 @@ const QuoteGenerator: React.FC = () => {
                   </div>
                 )}
 
-                <div className="mt-4 pt-4 border-t border-slate-100">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Tipologia di Noleggio</label>
-                  <select 
-                    className="w-full p-2.5 border rounded-lg bg-white text-sm"
-                    value={rentalType}
-                    onChange={(e) => setRentalType(e.target.value)}
-                  >
-                    <option value="Noleggio Breve Termine">Noleggio Breve Termine</option>
-                    <option value="Noleggio Medio Termine">Noleggio Medio Termine</option>
-                    <option value="Noleggio Lungo Termine">Noleggio Lungo Termine (Manuale)</option>
-                    <option value="Leasing Operativo">Leasing Operativo</option>
-                    <option value="Noleggio Corporate">Noleggio Corporate</option>
-                    <option value="Promo Flash 48h">Promo Flash 48h</option>
-                  </select>
-                </div>
 
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-4 mt-4">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-slate-600">{selectedOffer ? 'Canone mensile:' : `${rentalType}:`}</span>
-                    <span className="font-bold">{selectedOffer ? `€ ${selectedOffer.monthlyRate}` : days + ' giorni'}</span>
+                <div className="bg-slate-900 p-5 rounded-2xl shadow-xl shadow-indigo-100/50 mb-4 mt-4">
+                  <div className="flex justify-between text-xs text-indigo-300 font-bold uppercase tracking-wider mb-2">
+                    <span>{selectedOffer ? 'Canone Mensile (Scontato):' : 'Costo Unitario:'}</span>
+                    <span className="text-white text-sm">€ {baseTotal.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between text-lg font-bold text-slate-800 border-t border-slate-200 pt-2 mt-2">
-                    <span>{selectedOffer ? 'Totale Mese (Netto):' : 'Subtotale:'}</span>
-                    <span>€ {baseTotal.toLocaleString()}</span>
+                  <div className="flex justify-between items-center text-xl font-black text-white border-t border-slate-700 pt-3 mt-3">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Totale Netto</span>
+                      <span>€ {finalTotal.toLocaleString()}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter block">Iva Incl.</span>
+                      <span className="text-indigo-400 text-2xl">€ {grandTotal.toLocaleString()}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -514,7 +550,7 @@ const QuoteGenerator: React.FC = () => {
               })}
             </div>
           ) : (
-            <div className="bg-white shadow-2xl w-full max-w-[21cm] min-h-[29.7cm] p-[2cm] relative text-slate-800 print:shadow-none print:w-full print:h-auto print:max-w-none">
+            <div className="bg-white shadow-2xl w-full max-w-[21cm] min-h-[29.7cm] p-[2cm] relative text-slate-800 print:shadow-none print-canvas border print:border-none">
               {/* Header */}
               <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
                 <div className="flex items-center gap-4">
@@ -563,24 +599,19 @@ const QuoteGenerator: React.FC = () => {
               </div>
 
               {aiDescription && (
-                <div className="mb-8">
-                  <h4 className="text-sm font-bold uppercase border-b mb-3 pb-1">Valutazione AI</h4>
-                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{aiDescription}</p>
+                <div className="mb-6">
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap italic opacity-80">{aiDescription}</p>
                 </div>
               )}
 
               {/* Financial Plan */}
               {/* Piano Finanziario Table - Only Show if Step > 1 */}
                     {step > 1 && (
-                      <div className="mb-6">
-                        <h4 className="text-xs font-extrabold uppercase text-slate-800 mb-3 flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 bg-indigo-600 rounded-full"></span>
-                          Piano Finanziario
-                        </h4>
+                      <div className="mb-4">
                         <table className="w-full text-xs">
                           <thead>
                             <tr className="border-b-2 border-slate-900">
-                              <th className="py-2 text-left">Piano Finanziario</th>
+                              <th className="py-2 text-left">Dettaglio Soluzione</th>
                               <th className="py-2 text-right">Periodo Noleggio</th>
                               <th className="py-2 text-right">Rata Mensile</th>
                             </tr>
@@ -610,12 +641,7 @@ const QuoteGenerator: React.FC = () => {
                                     </div>
                                   </td>
                                   <td className="py-3 text-right font-bold">{selectedOffer.duration} mesi</td>
-                                  <td className="py-3 text-right font-bold">€ {Math.round(selectedOffer.monthlyRate).toLocaleString()}</td>
-                                </tr>
-                                <tr>
-                                  <td colSpan={3} className="py-2 text-[10px] text-slate-500 italic">
-                                    * Canone comprensivo di: RCA, Kasko, Furto, Manutenzione Ordinaria/Straordinaria, Assistenza Stradale.
-                                  </td>
+                                  <td className="py-3 text-right font-bold">€ {Math.round(baseTotal).toLocaleString()}</td>
                                 </tr>
                               </>
                             ) : (
@@ -633,104 +659,92 @@ const QuoteGenerator: React.FC = () => {
                     {/* Totals Section - Enhanced for Printing */}
                     {step > 1 && (
                       <div className="mt-6 pt-4 border-t-2 border-slate-900 border-dashed">
-                        <div className="bg-slate-900 text-white rounded-xl p-4 md:p-6 shadow-xl print:shadow-none print:bg-slate-900 print:text-white">
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-slate-700">
-                            {/* Column 1: Monthly Detail */}
-                            <div className="space-y-3 pb-4 md:pb-0 md:pr-6">
-                              <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block mb-2">Canone Mensile</span>
-                              <div className="flex justify-between items-center text-xs opacity-80">
-                                <span>Rata Netta:</span>
-                                <span>€ {Math.round(finalTotal).toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-xs opacity-80 border-b border-slate-700 pb-2">
-                                <span>IVA (22%):</span>
-                                <span>€ {Math.round(vat).toLocaleString()}</span>
-                              </div>
-                              <div className="flex justify-between items-center text-lg font-black text-white pt-2">
-                                <span>Rata Totale:</span>
-                                <span>€ {Math.round(grandTotal).toLocaleString()}</span>
-                              </div>
-                            </div>
-
-                            {/* Column 2: Service Franchises */}
-                            {selectedOffer ? (
-                              <div className="space-y-3 pt-4 md:pt-0 md:px-6">
-                                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block mb-2">Opzioni & Franchigie</span>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                                  <div>
-                                    <span className="block opacity-50 text-[8px] uppercase font-bold">Anticipo</span>
-                                    <span className="font-bold text-sm text-white">€ {selectedOffer.advance.toLocaleString()}</span>
-                                  </div>
-                                  <div>
-                                    <span className="block opacity-50 text-[8px] uppercase font-bold">Kasko (Ric.)</span>
-                                    <span className="font-bold text-sm text-white">€ {selectedOffer.kasko.toLocaleString()}</span>
-                                  </div>
-                                  <div>
-                                    <span className="block opacity-50 text-[8px] uppercase font-bold">Furto (Ric.)</span>
-                                    <span className="font-bold text-sm text-white">€ {selectedOffer.theft.toLocaleString()}</span>
-                                  </div>
-                                  <div>
-                                    <span className="block opacity-50 text-[8px] uppercase font-bold">Durata</span>
-                                    <span className="font-bold text-sm text-white">{selectedOffer.duration} mesi</span>
-                                  </div>
-                                </div>
-                                <div className="pt-2">
-                                  <span className="block opacity-50 text-[8px] uppercase font-bold mb-1">Km Totali inclusi</span>
-                                  <span className="text-sm font-bold">{selectedOffer.kms.toLocaleString()} km</span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="space-y-2 pt-4 md:pt-0 md:px-6">
-                                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block mb-2">Opzioni Base</span>
-                                <div className="p-3 bg-slate-800/40 rounded border border-slate-700">
-                                   <div className="flex justify-between text-xs">
-                                      <span>Inizio:</span>
-                                      <span className="font-bold">{startDate || '-'}</span>
-                                   </div>
-                                   <div className="flex justify-between text-xs mt-1">
-                                      <span>Fine:</span>
-                                      <span className="font-bold">{endDate || '-'}</span>
-                                   </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Column 3: Grand Engagement */}
-                            <div className="pt-4 md:pt-0 md:pl-6 flex flex-col justify-between">
-                              <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block mb-2">Impegno Contrattuale</span>
-                              {selectedOffer ? (
-                                <div className="space-y-4">
-                                  <div className="text-xs space-y-1">
-                                    <div className="flex justify-between opacity-80">
-                                      <span>Somma Rate (Netto):</span>
-                                      <span>€ {Math.round(selectedOffer.monthlyRate * selectedOffer.duration).toLocaleString()}</span>
+                        <div className="bg-slate-900 text-white rounded-2xl overflow-hidden shadow-xl print:shadow-none">
+                          {/* Row 1: COMPACT Header */}
+                          <div className="p-5 border-b border-white/5 bg-gradient-to-r from-slate-900 to-indigo-950">
+                            <div className="flex flex-wrap items-center justify-between gap-y-4">
+                                {/* Left: Monthly Rate */}
+                                <div className="flex items-center gap-6">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] text-indigo-400 font-black uppercase tracking-widest block mb-1">Canone Mensile (IVA Incl.)</span>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-4xl font-black text-white tracking-tighter">€ {Math.round(grandTotal).toLocaleString()}</span>
+                                            <span className="text-[10px] text-slate-400 font-bold">/ mese</span>
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between opacity-80">
-                                      <span>Anticipo:</span>
-                                      <span>€ {selectedOffer.advance.toLocaleString()}</span>
-                                    </div>
-                                  </div>
-                                  <div className="bg-indigo-600 rounded-lg p-4 shadow-inner border border-indigo-400/30">
-                                    <span className="block text-[8px] uppercase font-bold text-indigo-200 mb-1">Valore Totale Contratto (Inc. IVA)</span>
-                                    <span className="text-2xl font-black block tracking-tight">
-                                      € {Math.round(((selectedOffer.monthlyRate * selectedOffer.duration) + (selectedOffer.advance || 0)) * 1.22).toLocaleString()}
-                                    </span>
-                                  </div>
+
+                                    {/* Parameters inline next to it */}
+                                    {selectedOffer && (
+                                        <div className="flex items-center gap-6 border-l border-white/10 pl-6 ml-2 h-10">
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] text-slate-500 font-black uppercase tracking-tighter mb-0.5">Anticipo</span>
+                                                <span className="text-sm font-extrabold text-indigo-400">€ {(customAdvance || selectedOffer.advance).toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] text-slate-500 font-black uppercase tracking-tighter mb-0.5">Kasko Ric.</span>
+                                                <span className="text-sm font-extrabold">€ {selectedOffer.kasko.toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] text-slate-500 font-black uppercase tracking-tighter mb-0.5">RCA</span>
+                                                <span className="text-sm font-extrabold">€ {(selectedOffer.rca ?? 250).toLocaleString()}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[8px] text-slate-500 font-black uppercase tracking-tighter mb-0.5">Durata</span>
+                                                <span className="text-sm font-extrabold">{selectedOffer.duration} <span className="text-[10px] opacity-50">mesi</span></span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                              ) : (
-                                <div className="bg-indigo-600 rounded-lg p-4 shadow-inner border border-indigo-400/30">
-                                  <span className="block text-[8px] uppercase font-bold text-indigo-200 mb-1">Subtotale Lordo (IVA incl.)</span>
-                                  <span className="text-2xl font-black block tracking-tight">
-                                    € {Math.round(grandTotal).toLocaleString()}
-                                  </span>
+
+                                {/* Right: Totals detail */}
+                                <div className="flex flex-col items-end text-right">
+                                    <div className="text-[10px] text-slate-400 font-medium">Imponibile: € {Math.round(finalTotal).toLocaleString()}</div>
+                                    <div className="text-[10px] text-slate-400 font-medium">IVA (22%): € {Math.round(vat).toLocaleString()}</div>
                                 </div>
-                              )}
                             </div>
                           </div>
-                          <div className="mt-4 pt-4 border-t border-slate-800 text-center">
-                            <p className="text-[8px] opacity-40 italic">
-                             * I calcoli qui riportati sono puramente indicativi e potrebbero variare in fase di sottoscrizione definitiva. IVA calcolata al 22%.
-                            </p>
+
+                          {/* Row 2: Services & Details */}
+                          <div className="p-6 bg-slate-800/20">
+                            <div className="flex flex-col md:flex-row gap-8">
+                                {/* Services List */}
+                                <div className="flex-1">
+                                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest block mb-4 flex items-center gap-2">
+                                        <ShieldCheck className="w-3 h-3 text-indigo-500" /> Servizi Inclusi nel Canone
+                                    </span>
+                                    <div className="flex flex-wrap gap-x-8 gap-y-3">
+                                        {[
+                                            'Assicurazione RCA',
+                                            'Incendio, Furto e Rapina',
+                                            'Kasko totale con franchigia',
+                                            'Assistenza Stradale H24',
+                                            'Manutenzione Ordinaria e Straordinaria',
+                                            'Tassa di Possesso'
+                                        ].map((service, i) => (
+                                            <div key={i} className="flex items-center gap-2 text-[10px] text-white font-medium">
+                                                <div className="w-1 h-1 bg-green-500 rounded-full"></div>
+                                                {service}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Stock Info Badge */}
+                                <div className="md:w-64 bg-slate-400/5 rounded-xl p-4 border border-white/5">
+                                    <span className="text-[8px] text-slate-500 font-bold uppercase block mb-1">Stato Veicolo</span>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
+                                        <span className="text-xs font-bold text-indigo-400">Pronta Consegna Stock</span>
+                                    </div>
+                                    <p className="text-[9px] text-slate-400 italic">Offerta valida per 15 giorni salvo esaurimento scorte.</p>
+                                </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-indigo-600/10 py-3 px-6 text-center border-t border-white/5">
+                             <p className="text-[8px] text-slate-500 font-bold tracking-[0.2em] uppercase">
+                               * Documento creato digitalmente con piattaforma RentSync AI
+                             </p>
                           </div>
                         </div>
                       </div>

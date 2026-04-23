@@ -131,12 +131,12 @@ const FleetManager: React.FC = () => {
     };
 
     const getDefaultOffers = () => [
-        { duration: 36, kms: 30000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0 },
-        { duration: 36, kms: 45000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0 },
-        { duration: 36, kms: 60000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0 },
-        { duration: 48, kms: 40000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0 },
-        { duration: 48, kms: 45000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0 },
-        { duration: 48, kms: 60000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0 },
+        { duration: 36, kms: 30000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0, rca: 250 },
+        { duration: 36, kms: 45000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0, rca: 250 },
+        { duration: 36, kms: 60000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0, rca: 250 },
+        { duration: 48, kms: 40000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0, rca: 250 },
+        { duration: 48, kms: 45000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0, rca: 250 },
+        { duration: 48, kms: 60000, monthlyRate: 0, advance: 0, kasko: 500, theft: 0, rca: 250 },
     ] as any;
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,20 +148,70 @@ const FleetManager: React.FC = () => {
             const text = event.target?.result as string;
             if (!text) return;
 
-            const lines = text.split('\n').filter(l => l.trim());
-            if (lines.length < 2) return;
+            // Robust CSV parser to handle newlines in quoted fields
+            const parseCSV = (content: string) => {
+                const rows: string[][] = [];
+                let row: string[] = [];
+                let field = '';
+                let inQuotes = false;
+                
+                // Detect separator from the first line
+                const firstNewLine = content.indexOf('\n');
+                const firstLine = firstNewLine !== -1 ? content.substring(0, firstNewLine) : content;
+                const separator = firstLine.includes(';') ? ';' : ',';
 
-            // Detect separator (usually ; or ,)
-            const firstLine = lines[0];
-            const separator = firstLine.includes(';') ? ';' : ',';
-            const headers = firstLine.split(separator).map(h => h.trim().replace(/"/g, '').toLowerCase());
+                for (let i = 0; i < content.length; i++) {
+                    const char = content[i];
+                    const nextChar = content[i + 1];
+                    
+                    if (inQuotes) {
+                        if (char === '"' && nextChar === '"') {
+                            field += '"';
+                            i++;
+                        } else if (char === '"') {
+                            inQuotes = false;
+                        } else {
+                            field += char;
+                        }
+                    } else {
+                        if (char === '"') {
+                            inQuotes = true;
+                        } else if (char === separator) {
+                            row.push(field.trim());
+                            field = '';
+                        } else if (char === '\n' || char === '\r') {
+                            if (field || row.length > 0) {
+                                row.push(field.trim());
+                                rows.push(row);
+                                row = [];
+                                field = '';
+                            }
+                            if (char === '\r' && nextChar === '\n') i++;
+                        } else {
+                            field += char;
+                        }
+                    }
+                }
+                if (field || row.length > 0) {
+                    row.push(field.trim());
+                    rows.push(row);
+                }
+                return { rows, separator };
+            };
+
+            const { rows, separator } = parseCSV(text);
+            if (rows.length < 2) return;
+
+            const headers = rows[0].map(h => h.toLowerCase().replace(/"/g, '').trim());
             
-            const newItems: Car[] = lines.slice(2).map((line, i) => {
-                const parts = line.split(separator).map(p => p.trim().replace(/"/g, ''));
+            const newItems: Car[] = rows.slice(1).map((row, i) => {
                 const data: any = {};
                 headers.forEach((h, index) => {
-                    data[h] = parts[index] || '';
+                    data[h] = row[index] || '';
                 });
+
+                // Skip rows that don't have a valid brand/make
+                if (!data.makename && !data.marca && !data.brand) return null;
 
                 return {
                     id: data.vehicleid || data['codice veicolo'] || `stk-${i}-${Date.now()}`,
@@ -182,7 +232,8 @@ const FleetManager: React.FC = () => {
                     year: new Date().getFullYear(),
                     offers: getDefaultOffers()
                 } as Car;
-            }).filter(item => 
+            }).filter((item): item is Car => 
+                item !== null && 
                 item.brand && 
                 item.brand.toUpperCase() !== 'MARCA' && 
                 !item.brand.toUpperCase().includes('STOCK') &&
@@ -193,7 +244,9 @@ const FleetManager: React.FC = () => {
                 setImportedItems(newItems);
                 setSelectedImportedIds(new Set());
                 setActiveTab('IMPORT');
-                alert(`DB caricato con ${newItems.length} auto. Seleziona ora quali trasferire nel Parco Auto.`);
+                alert(`DB caricato correttamente con ${newItems.length} veicoli allineati.`);
+            } else {
+                alert("Nessun veicolo valido trovato nel file. Verifica il formato delle colonne.");
             }
         };
         reader.readAsText(file);
@@ -604,6 +657,23 @@ const FleetManager: React.FC = () => {
                                                 onChange={(e) => {
                                                     const val = parseFloat(e.target.value) || 0;
                                                     const newOffers = (showOfferModal.offers || []).map(o => ({ ...o, kasko: val }));
+                                                    setShowOfferModal({ ...showOfferModal, offers: newOffers });
+                                                }}
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 font-bold">€</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="relative">
+                                        <label className="text-[10px] font-black text-indigo-200 uppercase tracking-widest mb-2 block">RCA (Default)</label>
+                                        <div className="relative">
+                                            <input 
+                                                type="number" 
+                                                className="w-full bg-white/10 border border-white/20 p-3 rounded-xl text-white font-black text-lg outline-none focus:bg-white/20 transition-all"
+                                                value={showOfferModal.offers?.[0]?.rca ?? 250}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value) || 0;
+                                                    const newOffers = (showOfferModal.offers || []).map(o => ({ ...o, rca: val }));
                                                     setShowOfferModal({ ...showOfferModal, offers: newOffers });
                                                 }}
                                             />

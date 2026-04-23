@@ -11,6 +11,7 @@ export interface RentalOffer {
   advance: number;
   kasko: number; // amount in Euro
   theft: number; // amount in Euro
+  rca: number;   // amount in Euro
 }
 
 export interface Car {
@@ -116,6 +117,7 @@ export interface Contract {
   id: string;
   agentId: string;
   clientId: string;
+  subagentId?: string; // Optional: Link to subagent if applicable
   carId: string;
   startDate: string;
   endDate: string;

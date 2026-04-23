@@ -33,9 +33,9 @@ const SectionHeader: React.FC<{ label: string }> = ({ label }) => (
 
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
+    <div className="flex h-screen overflow-hidden bg-[#F8FAFC] print:h-auto print:block print:bg-white">
       {/* Sidebar */}
-      <div className="w-72 bg-[#020617] flex flex-col h-full flex-shrink-0 border-r border-slate-900 shadow-2xl relative z-20">
+      <div className="w-72 bg-[#020617] flex flex-col h-full flex-shrink-0 border-r border-slate-900 shadow-2xl relative z-20 print:hidden text-white">
 
         {/* LOGO SECTION (UNCHANGED) */}
         <div className="p-6 border-b border-slate-800/60 bg-[#020617]">
@@ -132,10 +132,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 relative">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 relative print:bg-white print:overflow-visible">
         {/* Subtle decorative background blur for main content area */}
-        <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-50/50 to-transparent pointer-events-none z-0"></div>
-        <main className="flex-1 overflow-y-auto p-2 relative">
+        <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-indigo-50/50 to-transparent pointer-events-none z-0 print:hidden font-sans"></div>
+        <main className="flex-1 overflow-y-auto p-2 relative print:p-0 print:overflow-visible">
           {children}
         </main>
       </div>

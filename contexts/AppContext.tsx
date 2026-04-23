@@ -23,8 +23,8 @@ const INITIAL_FLEET: Car[] = [
     pricePerDay: 120,
     features: ['GPS', 'Pelle', 'Riscaldamento'],
     offers: [
-      { duration: 36, kms: 45000, monthlyRate: 750, advance: 2500, kasko: 500, theft: 0 },
-      { duration: 48, kms: 60000, monthlyRate: 680, advance: 3000, kasko: 500, theft: 0 }
+      { duration: 36, kms: 45000, monthlyRate: 750, advance: 0, kasko: 500, theft: 0, rca: 250 },
+      { duration: 48, kms: 60000, monthlyRate: 680, advance: 0, kasko: 500, theft: 0, rca: 250 }
     ]
   },
   {
@@ -47,8 +47,8 @@ const INITIAL_FLEET: Car[] = [
     pricePerDay: 85,
     features: ['Cruise Control', 'CarPlay', 'Sensori Parcheggio'],
     offers: [
-      { duration: 36, kms: 30000, monthlyRate: 450, advance: 0, kasko: 500, theft: 0 },
-      { duration: 48, kms: 40000, monthlyRate: 390, advance: 1500, kasko: 500, theft: 0 }
+      { duration: 36, kms: 30000, monthlyRate: 450, advance: 0, kasko: 500, theft: 0, rca: 250 },
+      { duration: 48, kms: 40000, monthlyRate: 390, advance: 0, kasko: 500, theft: 0, rca: 250 }
     ]
   }
 ];
@@ -136,6 +136,7 @@ interface AppContextType {
   updateCar: (id: string, updates: Partial<Car>) => void;
   deleteCar: (id: string) => void;
   addAgent: (agent: Agent) => void;
+  updateAgent: (id: string, updates: Partial<Agent>) => void;
   updateCarStatus: (id: string, status: CarStatus) => void;
   createContract: (contract: Contract) => void;
   addLead: (lead: MarketingLead) => void;
@@ -143,7 +144,12 @@ interface AppContextType {
   companySettings: CompanySettings;
   updateCompanySettings: (settings: CompanySettings) => void;
   updateClient: (client: Client) => void;
+  deleteClient: (id: string) => void;
   setFleet: (fleet: Car[]) => void;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  selectedId: string | null;
+  setSelectedId: (id: string | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -169,6 +175,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   ]);
   const [leads, setLeads] = useState<MarketingLead[]>(INITIAL_LEADS);
   const [companySettings, setCompanySettings] = useState<CompanySettings>(INITIAL_COMPANY_SETTINGS);
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('agent_ref') ? 'mobile' : 'dashboard';
+  });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const addClient = (client: Client) => {
     setClients(prev => [...prev, client]);
@@ -176,6 +187,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateClient = (updatedClient: Client) => {
     setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+  };
+
+  const deleteClient = (id: string) => {
+    setClients(prev => prev.filter(c => c.id !== id));
   };
 
   const addCar = (car: Car) => {
@@ -192,6 +207,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addAgent = (agent: Agent) => {
     setAgents(prev => [...prev, agent]);
+  };
+  const updateAgent = (id: string, updates: Partial<Agent>) => {
+    setAgents(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
   };
 
   const updateCarStatus = (id: string, status: CarStatus) => {
@@ -237,7 +255,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   return (
-    <AppContext.Provider value={{ fleet, setFleet, clients, agents, contracts, leads, addClient, updateClient, addCar, updateCar, deleteCar, addAgent, updateCarStatus, createContract, addLead, updateContractPhotos, companySettings, updateCompanySettings }}>
+    <AppContext.Provider value={{ 
+      fleet, setFleet, clients, agents, contracts, leads, addClient, updateClient, deleteClient,
+      addCar, updateCar, deleteCar, addAgent, updateAgent, updateCarStatus, 
+      createContract, addLead, updateContractPhotos, companySettings, updateCompanySettings,
+      activeTab, setActiveTab, selectedId, setSelectedId
+    }}>
       {children}
     </AppContext.Provider>
   );

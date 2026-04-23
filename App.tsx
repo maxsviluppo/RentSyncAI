@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import FleetManager from './components/FleetManager';
@@ -9,14 +9,10 @@ import ClientsManager from './components/ClientsManager';
 import AgentsManager from './components/AgentsManager';
 import AgentMobileApp from './components/AgentMobileApp';
 import Settings from './components/Settings';
-import { AppProvider } from './contexts/AppContext';
+import { AppProvider, useApp } from './contexts/AppContext';
 
 const AppContent: React.FC = () => {
-  // Initialize activeTab based on URL params for QR Code login
-  const [activeTab, setActiveTab] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('agent_ref') ? 'mobile' : 'dashboard';
-  });
+  const { activeTab, setActiveTab } = useApp();
 
   const renderContent = () => {
     switch (activeTab) {

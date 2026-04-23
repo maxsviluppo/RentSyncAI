@@ -213,8 +213,8 @@ export const generateCarDetails = async (brand: string, model: string, year?: nu
       description: `Un veicolo versatile e moderno, perfetto per il ${brand} ${model}. Sicurezza e comfort garantiti.`,
       pricePerDay: 85,
       offers: [
-        { duration: 36, kms: 30000, monthlyRate: 450, advance: 2000, kasko: 500, theft: 0 },
-        { duration: 48, kms: 40000, monthlyRate: 390, advance: 2500, kasko: 500, theft: 0 }
+        { duration: 36, kms: 30000, monthlyRate: 450, advance: 2000, kasko: 500, theft: 0, rca: 250 },
+        { duration: 48, kms: 40000, monthlyRate: 390, advance: 2500, kasko: 500, theft: 0, rca: 250 }
       ],
       fuelType: 'Ibrido',
       transmission: 'Automatico'
@@ -329,10 +329,45 @@ export const recommendCar = async (
   const client = getAiClient();
   if (!client) {
     if (fleet.length === 0) return [];
-    return [
-      { carId: fleet[0].id, matchScore: 95, reasoning: `Data la tua percorrenza di ${profile.annualKm}km e la priorità "${profile.priority}", questo modello è il miglior compromesso tra costi e comfort.`, suggestedMonthlyRate: 450, suggestedDurationMonths: 36 },
-      { carId: fleet[1]?.id || fleet[0].id, matchScore: 88, reasoning: "Ottima per lo spazio a bordo e la tecnologia integrata.", suggestedMonthlyRate: 520, suggestedDurationMonths: 24 }
-    ];
+    
+    // HEURISTIC MATCHING FOR SIMULATION
+    const scoredFleet = fleet.map(car => {
+        let score = 50; // Starting baseline
+        let reasons: string[] = [];
+
+        // 1. Budget vs Income (rough check)
+        const income = parseInt(profile.annualIncome) || 30000;
+        const dailyPrice = car.pricePerDay || 50;
+        const potentialRate = dailyPrice * 15; // Rough estimate of monthly rate
+        if (potentialRate < (income / 50)) { score += 15; reasons.push("Sostenibilità economica eccellente"); }
+        
+        // 2. KM vs Fuel
+        const km = parseInt(profile.annualKm) || 15000;
+        if (km > 25000 && car.fuelType === 'Diesel') { score += 20; reasons.push("Efficienza Diesel per alte percorrenze"); }
+        if (km < 10000 && (car.fuelType === 'Elettrico' || car.fuelType === 'Ibrido')) { score += 20; reasons.push("Perfetta per percorsi brevi ed ecologici"); }
+        
+        // 3. Family vs Category
+        const family = parseInt(profile.familySize) || 1;
+        if (family >= 4 && (car.category === 'SUV' || car.category === 'Van')) { score += 20; reasons.push("Spazio ideale per il tuo nucleo familiare"); }
+        if (family < 3 && car.category === 'Economy') { score += 15; reasons.push("Agile e compatta per le tue necessità"); }
+
+        // 4. Trip Type
+        if (profile.tripType === 'Urbano' && car.transmission === 'Automatico') { score += 10; reasons.push("Cambio automatico ideale per il traffico cittadino"); }
+        
+        // 5. Priority
+        if (profile.priority === 'Comfort' && car.category === 'Luxury') { score += 15; reasons.push("Massimo comfort per i tuoi viaggi"); }
+        if (profile.priority === 'Risparmio' && car.category === 'Economy') { score += 15; reasons.push("Focus massimo sull'ottimizzazione dei costi"); }
+
+        return {
+            carId: car.id,
+            matchScore: Math.min(99, score),
+            reasoning: reasons.length > 0 ? reasons.join(". ") + "." : "Un'ottima opzione equilibrata per il tuo profilo.",
+            suggestedMonthlyRate: (car.pricePerDay || 50) * 12,
+            suggestedDurationMonths: km > 20000 ? 36 : 48
+        };
+    });
+
+    return scoredFleet.sort((a, b) => b.matchScore - a.matchScore).slice(0, 3);
   }
   try {
     const response = await client.models.generateContent({

@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Client, Contract } from '../types';
 import { useApp } from '../contexts/AppContext';
-import { Users, Search, Plus, Building2, User, ArrowLeft, History, Calendar, Car as CarIcon, Eye, Printer, Share2, Camera, UploadCloud, X, AlertTriangle, ArrowRight, CheckCircle2, FileText, Trash2, Bell, FileCheck, Briefcase } from 'lucide-react';
+import { Users, Search, Plus, Building2, User, ArrowLeft, History, Calendar, Car as CarIcon, Eye, Printer, Share2, Camera, UploadCloud, X, AlertTriangle, ArrowRight, CheckCircle2, FileText, Trash2, Bell, FileCheck, Briefcase, Pencil, Save, Download } from 'lucide-react';
 import { supabase } from '../services/supabase';
 
 const ClientsManager: React.FC = () => {
-  const { clients, contracts, fleet, agents, addClient, updateContractPhotos } = useApp();
+  const { clients, contracts, fleet, agents, addClient, updateContractPhotos, updateClient, deleteClient, selectedId, setSelectedId } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [newClient, setNewClient] = useState<Partial<Client>>({ type: 'Privato', status: 'Attivo' });
 
@@ -104,12 +105,24 @@ const ClientsManager: React.FC = () => {
   const [previewDoc, setPreviewDoc] = useState<string | null>(null); // URL of doc to preview
   const [showContractModal, setShowContractModal] = useState(false); // Contract Generator Modal
 
+  // Handle cross-context selection from AgentsManager
+  useEffect(() => {
+    if (selectedId) {
+      const client = clients.find(c => c.id === selectedId);
+      if (client) {
+        setSelectedClient(client);
+        setActiveTab('profile');
+      }
+      setSelectedId(null); // Clear after handling
+    }
+  }, [selectedId, clients, setSelectedId]);
+
   // Handlers for Detail View
   const handleUpdate = () => {
     if (selectedClient) {
-      // Logic to save changes would go here
-      // updateClient(selectedClient); // Assuming we bind inputs to selectedClient state
+      updateClient(selectedClient);
       setEditMode(false);
+      alert("Dati cliente aggiornati con successo.");
     }
   };
 
@@ -131,6 +144,32 @@ const ClientsManager: React.FC = () => {
     }
   };
 
+  const handleDownloadDoc = (doc: any) => {
+    const link = document.createElement('a');
+    link.href = doc.url;
+    link.download = doc.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handlePrintDoc = (docUrl: string) => {
+    const printWindow = window.open(docUrl, '_blank');
+    if (printWindow) {
+      printWindow.addEventListener('load', () => {
+        printWindow.print();
+      });
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedClient) {
+      deleteClient(selectedClient.id);
+      setSelectedClient(null);
+      setShowDeleteModal(false);
+    }
+  };
+
   const handleDeleteDoc = (docId: string) => {
     if (selectedClient) {
       const updatedDocs = selectedClient.documents?.filter(d => d.id !== docId) || [];
@@ -145,7 +184,114 @@ const ClientsManager: React.FC = () => {
     const linkedAgent = selectedClient.subagentId ? agents.find(a => a.id === selectedClient.subagentId) : null;
 
     return (
-      <div className="p-6 h-full flex flex-col animate-in slide-in-from-right duration-300">
+      <div className="p-6 h-full flex flex-col animate-in slide-in-from-right duration-300 relative">
+        {/* PRINTABLE AREA (Hidden on Screen) */}
+        <div className="hidden print:block absolute inset-0 bg-white z-[1000] p-10 font-sans text-slate-900 border">
+          <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6 mb-8">
+            <div>
+               <h1 className="text-3xl font-black uppercase tracking-tighter text-indigo-700">RentSync AI</h1>
+               <p className="text-xs font-bold text-slate-500 mt-1 uppercase tracking-widest">Client Dossier Report • Confidential</p>
+            </div>
+            <div className="text-right text-xs">
+               <p className="font-bold">RentSync AI Solutions S.r.l.</p>
+               <p>Regulated Mobility Services</p>
+               <p className="text-slate-400 mt-1">Data Stampa: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
+            </div>
+          </div>
+
+          <div className="space-y-10">
+             {/* ANAGRAFICA SECTION */}
+             <section>
+                <h2 className="text-lg font-black uppercase mb-4 flex items-center gap-2 border-b-2 border-slate-100 pb-2">
+                   <div className="w-2 h-6 bg-indigo-600 rounded-sm" /> Dati Anagrafici & Fiscali
+                </h2>
+                <div className="grid grid-cols-2 gap-y-6 gap-x-12">
+                   <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nome / Ragione Sociale</label>
+                      <p className="text-base font-bold text-slate-900">{selectedClient.name}</p>
+                   </div>
+                   <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tipologia Cliente</label>
+                      <p className="text-sm font-semibold">{selectedClient.type}</p>
+                   </div>
+                   <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Email di Contatto</label>
+                      <p className="text-sm font-semibold">{selectedClient.email}</p>
+                   </div>
+                   <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Recapito Telefonico</label>
+                      <p className="text-sm font-semibold">{selectedClient.phone}</p>
+                   </div>
+                   <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">{selectedClient.type === 'Azienda' ? 'Partita IVA' : 'Codice Fiscale'}</label>
+                      <p className="text-sm font-bold font-mono uppercase bg-slate-50 px-2 py-1 rounded-md border border-slate-100 inline-block">
+                         {selectedClient.vatNumber || selectedClient.fiscalCode || 'NESSUN DATO'}
+                      </p>
+                   </div>
+                   <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Indirizzo di Residenza / Sede</label>
+                      <p className="text-sm font-semibold">
+                         {selectedClient.address?.street}, {selectedClient.address?.city} ({selectedClient.address?.province})
+                      </p>
+                   </div>
+                   {linkedAgent && (
+                      <div className="col-span-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
+                         <label className="block text-[10px] font-bold text-indigo-400 uppercase mb-1">Subagente di Riferimento</label>
+                         <p className="text-sm font-bold text-indigo-700">{linkedAgent.name} • {linkedAgent.region}</p>
+                      </div>
+                   )}
+                </div>
+             </section>
+
+             {/* HISTORY SECTION */}
+             <section>
+                <h2 className="text-lg font-black uppercase mb-4 flex items-center gap-2 border-b-2 border-slate-100 pb-2">
+                   <div className="w-2 h-6 bg-slate-900 rounded-sm" /> Archivio Storico Auto & Contratti
+                </h2>
+                <table className="w-full text-left border-collapse">
+                   <thead>
+                      <tr className="bg-slate-900 text-white">
+                         <th className="px-4 py-2 text-[10px] font-bold uppercase">Veicolo / Targa</th>
+                         <th className="px-4 py-2 text-[10px] font-bold uppercase">Periodo</th>
+                         <th className="px-4 py-2 text-[10px] font-bold uppercase">Stato</th>
+                         <th className="px-4 py-2 text-[10px] font-bold uppercase text-right">Importo Lordo</th>
+                      </tr>
+                   </thead>
+                   <tbody className="divide-y border-b">
+                      {[...(selectedClient.rentalHistory || []).map(r => ({ ...r, type: 'ARCHIVED' })), ...clientContracts.map(c => ({ ...c, type: 'CONTRACT', carModel: `${fleet.find(f => f.id === c.carId)?.brand} ${fleet.find(f => f.id === c.carId)?.model}`, plate: fleet.find(f => f.id === c.carId)?.plate }))].map((item: any, i) => (
+                         <tr key={i} className="text-sm">
+                            <td className="px-4 py-4">
+                               <p className="font-bold">{item.carModel}</p>
+                               <p className="text-[10px] font-mono text-slate-400 uppercase">{item.plate}</p>
+                            </td>
+                            <td className="px-4 py-4 text-xs font-semibold tabular-nums text-slate-500">
+                               {item.startDate} / {item.endDate}
+                            </td>
+                            <td className="px-4 py-4">
+                               <span className="text-[10px] font-bold uppercase bg-slate-100 px-2 py-1 rounded text-slate-600 border border-slate-200">{item.status}</span>
+                            </td>
+                            <td className="px-4 py-4 text-right font-black text-indigo-700">
+                               € {item.totalAmount.toLocaleString()}
+                            </td>
+                         </tr>
+                      ))}
+                   </tbody>
+                </table>
+             </section>
+          </div>
+
+          <div className="fixed bottom-10 left-10 right-10 flex justify-between pt-10 border-t-2 border-slate-100">
+             <div className="text-center w-64">
+                <p className="text-[10px] font-bold text-slate-400 mb-8 uppercase italic tracking-widest">Direzione RentSync AI</p>
+                <div className="h-px bg-slate-900 w-full" />
+             </div>
+             <div className="text-center w-64">
+                <p className="text-[10px] font-bold text-slate-400 mb-8 uppercase italic tracking-widest">Firma Titolare Scheda</p>
+                <div className="h-px bg-slate-900 w-full" />
+             </div>
+          </div>
+        </div>
+
         {/* Header Dettaglio */}
         <div className="flex justify-between items-center mb-6 print:hidden">
           <div className="flex items-center gap-4">
@@ -219,34 +365,103 @@ const ClientsManager: React.FC = () => {
               <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-6">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-bold text-lg text-slate-700">Dettagli Cliente</h3>
-                  {/* Edit Button could go here */}
+                  <button 
+                    onClick={() => editMode ? handleUpdate() : setEditMode(true)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      editMode 
+                        ? 'bg-green-600 text-white shadow-lg shadow-green-100 hover:bg-green-700' 
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {editMode ? <><Save className="w-3.5 h-3.5" /> Salva Modifiche</> : <><Pencil className="w-3.5 h-3.5" /> Modifica Dati</>}
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <label className="text-xs font-bold text-slate-400 uppercase">Nome / Ragione Sociale</label>
-                    <p className="font-medium text-slate-800 text-lg">{selectedClient.name}</p>
+                    {editMode ? (
+                      <input 
+                        className="w-full mt-1 p-2 border rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={selectedClient.name}
+                        onChange={e => setSelectedClient({...selectedClient, name: e.target.value})}
+                      />
+                    ) : (
+                      <p className="font-medium text-slate-800 text-lg">{selectedClient.name}</p>
+                    )}
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-400 uppercase">Tipologia</label>
-                    <p className="font-medium text-slate-800">{selectedClient.type}</p>
+                    {editMode ? (
+                      <select 
+                        className="w-full mt-1 p-2 border rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={selectedClient.type}
+                        onChange={e => setSelectedClient({...selectedClient, type: e.target.value as any})}
+                      >
+                        <option>Privato</option>
+                        <option>Azienda</option>
+                      </select>
+                    ) : (
+                      <p className="font-medium text-slate-800">{selectedClient.type}</p>
+                    )}
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-400 uppercase">Email</label>
-                    <p className="font-medium text-slate-800">{selectedClient.email}</p>
+                    {editMode ? (
+                      <input 
+                        type="email"
+                        className="w-full mt-1 p-2 border rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={selectedClient.email}
+                        onChange={e => setSelectedClient({...selectedClient, email: e.target.value})}
+                      />
+                    ) : (
+                      <p className="font-medium text-slate-800">{selectedClient.email}</p>
+                    )}
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-400 uppercase">Telefono</label>
-                    <p className="font-medium text-slate-800">{selectedClient.phone}</p>
+                    {editMode ? (
+                      <input 
+                        className="w-full mt-1 p-2 border rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={selectedClient.phone}
+                        onChange={e => setSelectedClient({...selectedClient, phone: e.target.value})}
+                      />
+                    ) : (
+                      <p className="font-medium text-slate-800">{selectedClient.phone}</p>
+                    )}
                   </div>
                   <div>
                     <label className="text-xs font-bold text-slate-400 uppercase">{selectedClient.type === 'Azienda' ? 'Partita IVA' : 'Codice Fiscale'}</label>
-                    <p className="font-medium text-slate-800 font-mono tracking-wider">{selectedClient.vatNumber || selectedClient.fiscalCode || '-'}</p>
+                    {editMode ? (
+                      <input 
+                        className="w-full mt-1 p-2 border rounded-lg text-sm font-medium font-mono focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
+                        value={selectedClient.vatNumber || selectedClient.fiscalCode || ''}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (selectedClient.type === 'Azienda') {
+                            setSelectedClient({...selectedClient, vatNumber: val});
+                          } else {
+                            setSelectedClient({...selectedClient, fiscalCode: val});
+                          }
+                        }}
+                      />
+                    ) : (
+                      <p className="font-medium text-slate-800 font-mono tracking-wider">{selectedClient.vatNumber || selectedClient.fiscalCode || '-'}</p>
+                    )}
                   </div>
-                  {selectedClient.birthDate && (
+                  { (selectedClient.birthDate || editMode) && (
                     <div>
                       <label className="text-xs font-bold text-slate-400 uppercase">Data di Nascita</label>
-                      <p className="font-medium text-slate-800">{selectedClient.birthDate}</p>
+                      {editMode ? (
+                        <input 
+                          type="date"
+                          className="w-full mt-1 p-2 border rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                          value={selectedClient.birthDate || ''}
+                          onChange={e => setSelectedClient({...selectedClient, birthDate: e.target.value})}
+                        />
+                      ) : (
+                        <p className="font-medium text-slate-800">{selectedClient.birthDate}</p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -256,15 +471,48 @@ const ClientsManager: React.FC = () => {
                   <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid grid-cols-2 gap-4">
                     <div className="col-span-2">
                       <label className="text-xs font-bold text-slate-400 uppercase">Indirizzo</label>
-                      <p className="font-medium text-slate-800">{selectedClient.address?.street || '-'}</p>
+                      {editMode ? (
+                        <input 
+                          className="w-full mt-1 p-2 border rounded-lg text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                          value={selectedClient.address?.street || ''}
+                          onChange={e => setSelectedClient({...selectedClient, address: {...(selectedClient.address || {city: '', zip: '', province: ''}), street: e.target.value}})}
+                        />
+                      ) : (
+                        <p className="font-medium text-slate-800">{selectedClient.address?.street || '-'}</p>
+                      )}
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-400 uppercase">Città</label>
-                      <p className="font-medium text-slate-800">{selectedClient.address?.city || '-'}</p>
+                      {editMode ? (
+                        <input 
+                          className="w-full mt-1 p-2 border rounded-lg text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                          value={selectedClient.address?.city || ''}
+                          onChange={e => setSelectedClient({...selectedClient, address: {...(selectedClient.address || {street: '', zip: '', province: ''}), city: e.target.value}})}
+                        />
+                      ) : (
+                        <p className="font-medium text-slate-800">{selectedClient.address?.city || '-'}</p>
+                      )}
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-400 uppercase">Provincia / CAP</label>
-                      <p className="font-medium text-slate-800">{selectedClient.address?.province || '-'} ({selectedClient.address?.zip || '-'})</p>
+                      {editMode ? (
+                        <div className="flex gap-2">
+                          <input 
+                            className="w-full mt-1 p-2 border rounded-lg text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-mono uppercase"
+                            maxLength={2}
+                            value={selectedClient.address?.province || ''}
+                            onChange={e => setSelectedClient({...selectedClient, address: {...(selectedClient.address || {street: '', city: '', zip: ''}), province: e.target.value.toUpperCase()}})}
+                          />
+                          <input 
+                            className="w-full mt-1 p-2 border rounded-lg text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-mono"
+                            maxLength={5}
+                            value={selectedClient.address?.zip || ''}
+                            onChange={e => setSelectedClient({...selectedClient, address: {...(selectedClient.address || {street: '', city: '', province: ''}), zip: e.target.value}})}
+                          />
+                        </div>
+                      ) : (
+                        <p className="font-medium text-slate-800">{selectedClient.address?.province || '-'} ({selectedClient.address?.zip || '-'})</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -334,16 +582,28 @@ const ClientsManager: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <h4 className="font-bold text-slate-800 truncate">{doc.name}</h4>
                           <p className="text-xs text-slate-500">{doc.uploadDate} • {doc.type.toUpperCase()}</p>
-                          <div className="flex gap-2 mt-3">
+                          <div className="flex flex-wrap gap-2 mt-3">
                             <button
                               onClick={() => setPreviewDoc(doc.url)}
-                              className="text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded transition-colors"
+                              className="text-[10px] font-bold text-indigo-600 hover:bg-indigo-50 px-2 py-1 rounded transition-colors border border-indigo-100"
                             >
                               Anteprima
                             </button>
                             <button
+                              onClick={() => handleDownloadDoc(doc)}
+                              className="text-[10px] font-bold text-slate-600 hover:bg-slate-50 px-2 py-1 rounded transition-colors border border-slate-200 flex items-center gap-1"
+                            >
+                              <Download className="w-3 h-3" /> Scarica
+                            </button>
+                            <button
+                              onClick={() => handlePrintDoc(doc.url)}
+                              className="text-[10px] font-bold text-slate-600 hover:bg-slate-50 px-2 py-1 rounded transition-colors border border-slate-200 flex items-center gap-1"
+                            >
+                              <Printer className="w-3 h-3" /> Stampa
+                            </button>
+                            <button
                               onClick={() => handleDeleteDoc(doc.id)}
-                              className="text-xs font-bold text-red-500 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+                              className="text-[10px] font-bold text-red-500 hover:bg-red-50 px-2 py-1 rounded transition-colors"
                             >
                               Elimina
                             </button>
@@ -438,7 +698,12 @@ const ClientsManager: React.FC = () => {
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col overflow-hidden">
               <div className="p-4 border-b flex justify-between items-center bg-slate-50">
                 <h3 className="font-bold text-slate-800">Anteprima Documento</h3>
-                <button onClick={() => setPreviewDoc(null)} className="p-2 hover:bg-slate-200 rounded-full"><X className="w-5 h-5" /></button>
+                <div className="flex gap-2">
+                    <button onClick={() => handlePrintDoc(previewDoc)} className="p-2 hover:bg-indigo-100 text-indigo-600 rounded-full flex items-center gap-2 px-3">
+                        <Printer className="w-4 h-4" /> <span className="text-xs font-bold">Stampa</span>
+                    </button>
+                    <button onClick={() => setPreviewDoc(null)} className="p-2 hover:bg-slate-200 rounded-full"><X className="w-5 h-5" /></button>
+                </div>
               </div>
               <div className="flex-1 bg-slate-100 overflow-auto flex items-center justify-center p-4">
                 {previewDoc.endsWith('.pdf') ? (
@@ -569,6 +834,36 @@ const ClientsManager: React.FC = () => {
                   <Printer className="w-4 h-4" /> Stampa / PDF
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center p-4 backdrop-blur-md animate-in fade-in duration-300">
+            <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in duration-300">
+                <div className="bg-red-50 p-8 flex flex-col items-center text-center">
+                    <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6 ring-8 ring-red-50">
+                        <Trash2 className="w-10 h-10 text-red-600" />
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-900 mb-2">Elimina Cliente?</h3>
+                    <p className="text-sm text-slate-500 leading-relaxed px-4">
+                        Stai per eliminare definitivamente <strong>{selectedClient?.name}</strong>. Questa azione cancellerà anche tutto lo storico noleggi e i documenti allegati.
+                    </p>
+                </div>
+                <div className="p-6 bg-white border-t border-slate-100 flex gap-3">
+                    <button 
+                        onClick={() => setShowDeleteModal(false)}
+                        className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-all"
+                    >
+                        Annulla
+                    </button>
+                    <button 
+                        onClick={handleConfirmDelete}
+                        className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-bold hover:bg-red-700 shadow-lg shadow-red-200 active:scale-95 transition-all"
+                    >
+                        Elimina Ora
+                    </button>
+                </div>
             </div>
           </div>
         )}
@@ -727,6 +1022,7 @@ const ClientsManager: React.FC = () => {
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Cliente</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Contatti</th>
+                <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Subagente</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Tipo</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Score Rischio</th>
                 <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Stato</th>
@@ -758,10 +1054,15 @@ const ClientsManager: React.FC = () => {
                     <td className="px-6 py-4">
                       <div className="text-sm text-slate-600">{client.email}</div>
                       <div className="text-sm text-slate-500">{client.phone}</div>
-                      {linkedAgent && (
-                        <div className="mt-1 flex items-center gap-1 text-[10px] text-indigo-600 font-medium">
-                          <Briefcase className="w-3 h-3" /> Agent: {linkedAgent.nickname}
+                    </td>
+                    <td className="px-6 py-4">
+                      {linkedAgent ? (
+                        <div className="flex items-center gap-1.5 text-sm font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 w-fit">
+                          <Briefcase className="w-3.5 h-3.5" />
+                          {linkedAgent.name}
                         </div>
+                      ) : (
+                        <span className="text-slate-300 font-bold px-2">—</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
@@ -789,13 +1090,22 @@ const ClientsManager: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setSelectedClient(client); }}
-                        className="text-slate-400 hover:text-indigo-600 transition-colors p-2"
-                        title="Vedi Dettagli"
-                      >
-                        <Eye className="w-5 h-5" />
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedClient(client); }}
+                          className="text-slate-400 hover:text-indigo-600 transition-colors p-2"
+                          title="Vedi Dettagli"
+                        >
+                          <Eye className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSelectedClient(client); setShowDeleteModal(true); }}
+                          className="text-slate-400 hover:text-red-600 transition-colors p-2"
+                          title="Elimina Cliente"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
