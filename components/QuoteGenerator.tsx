@@ -48,7 +48,7 @@ const QuoteGenerator: React.FC = () => {
 
   const baseRate = selectedOffer ? selectedOffer.monthlyRate : (selectedCar ? (selectedCar.price || 0) : 0);
   const amortizedAdvance = (selectedOffer && customAdvance > 0) ? Math.round(customAdvance / selectedOffer.duration) : 0;
-  const baseTotal = Math.max(0, baseRate - amortizedAdvance - rateAdjustment);
+  const baseTotal = Math.max(0, baseRate - amortizedAdvance + rateAdjustment);
   
   const finalTotal = Math.round(Math.max(0, baseTotal - discount));
   const vat = Math.round(finalTotal * 0.22);
@@ -469,7 +469,7 @@ const QuoteGenerator: React.FC = () => {
                         onChange={e => setRateAdjustment(parseFloat(e.target.value) || 0)}
                       />
                     </div>
-                    <p className="text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter">Sottrae l'importo dal canone</p>
+                    <p className="text-[9px] text-slate-400 font-bold italic uppercase tracking-tighter">Somma (+) o sottrae (-) al canone</p>
                   </div>
                 </div>
 

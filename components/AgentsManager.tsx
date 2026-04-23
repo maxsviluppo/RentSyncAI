@@ -5,7 +5,7 @@ import {
   User, Mail, Phone, MapPin, Shield, ShieldOff, Trash2, Search, Plus, X, 
   ArrowLeft, MessageSquare, Briefcase, FileText, CheckCircle2, TrendingUp, 
   DollarSign, Calendar, Calculator, ChevronLeft, ChevronRight, Wallet, 
-  History, AlertCircle, Smartphone, Save, CreditCard, Printer, Share2, ArrowRight, Paperclip 
+  History, AlertCircle, Smartphone, Save, CreditCard, Printer, Share2, ArrowRight, Paperclip, QrCode, Copy 
 } from 'lucide-react';
 
 const AgentsManager: React.FC = () => {
@@ -179,6 +179,90 @@ const AgentsManager: React.FC = () => {
                             </table>
                         </div>
                         <div className="p-6 border-t bg-slate-50 flex justify-end"><button onClick={() => setGlobalAccounting(false)} className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold">Chiudi</button></div>
+                    </div>
+                </div>
+            )}
+
+            {/* Nuovo Mandato Modal */}
+            {showAddModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-8 animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[32px] w-full max-w-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                        <div className="p-8 border-b flex justify-between items-center bg-slate-50">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center">
+                                    <Plus className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-slate-800">Nuovo Mandato</h2>
+                                    <p className="text-sm text-slate-500">Registrazione nuovo subagente partner</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors"><X/></button>
+                        </div>
+                        
+                        <form onSubmit={handleCreateAgent} className="p-8 space-y-6">
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nome Completo</label>
+                                    <input 
+                                        required
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
+                                        placeholder="Mario Rossi"
+                                        value={newAgent.name || ''}
+                                        onChange={e => setNewAgent({...newAgent, name: e.target.value})}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nickname App (Accesso)</label>
+                                    <input 
+                                        required
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm"
+                                        placeholder="mrossi"
+                                        value={newAgent.nickname || ''}
+                                        onChange={e => setNewAgent({...newAgent, nickname: e.target.value})}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Zona Competenza</label>
+                                    <select 
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold"
+                                        value={newAgent.region}
+                                        onChange={e => setNewAgent({...newAgent, region: e.target.value})}
+                                    >
+                                        <option value="">Seleziona Zona</option>
+                                        <option value="Lombardia (Milano)">Lombardia (Milano)</option>
+                                        <option value="Lazio (Roma)">Lazio (Roma)</option>
+                                        <option value="Campania (Napoli)">Campania (Napoli)</option>
+                                        <option value="Toscana (Firenze)">Toscana (Firenze)</option>
+                                        <option value="Veneto (Venezia)">Veneto (Venezia)</option>
+                                        <option value="Emilia Romagna (Bologna)">Emilia Romagna (Bologna)</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Provvigione (%)</label>
+                                    <input 
+                                        type="number"
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-black text-indigo-600"
+                                        value={newAgent.commissionRate}
+                                        onChange={e => setNewAgent({...newAgent, commissionRate: Number(e.target.value)})}
+                                    />
+                                </div>
+                                <div className="col-span-2 space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IBAN per Pagamenti</label>
+                                    <input 
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-xs uppercase"
+                                        placeholder="IT00 X 00000 00000 000000000000"
+                                        value={newAgent.billing?.iban || ''}
+                                        onChange={e => setNewAgent({...newAgent, billing: {...newAgent.billing!, iban: e.target.value}})}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4 pt-4">
+                                <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-colors">Annulla</button>
+                                <button type="submit" className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition-all">Crea Mandato</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
@@ -507,29 +591,66 @@ const AgentsManager: React.FC = () => {
                                         </div>
 
                                         {/* MOBILE APP CREDENTIALS - FULL WIDTH */}
-                                        <div className="lg:col-span-2 bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 rounded-[40px] shadow-xl shadow-indigo-100 text-white flex flex-col md:flex-row justify-between items-center gap-8">
-                                            <div className="space-y-2">
+                                        <div className="lg:col-span-2 bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 rounded-[40px] shadow-xl shadow-indigo-100 text-white flex flex-col md:flex-row justify-between items-center gap-8 relative overflow-hidden">
+                                            {/* Background Decoration */}
+                                            <div className="absolute -top-24 -right-24 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+                                            
+                                            <div className="space-y-4 z-10">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="p-2 bg-white/20 rounded-xl"><Smartphone className="w-5 h-5"/></div>
+                                                    <div className="p-2 bg-white/20 rounded-xl shadow-inner"><Smartphone className="w-5 h-5"/></div>
                                                     <h4 className="text-2xl font-extrabold tracking-tight italic">Rentsync Pro Mobile</h4>
                                                 </div>
                                                 <p className="text-indigo-100 text-sm max-w-xl font-medium leading-relaxed">
-                                                    Questo agente accede in modalità 'Senza Password' tramite il suo Smart Link unico. Invia questo link al suo dispositivo per l'accesso immediato.
+                                                    Questo agente accede in modalità 'Senza Password' tramite il suo Smart Link unico. Invia questo link o fagli scansionare il QR Code per l'accesso immediato dal suo smartphone.
                                                 </p>
+                                                
+                                                <div className="flex flex-wrap gap-4 pt-2">
+                                                    <div className="bg-white p-2 rounded-2xl shadow-xl">
+                                                        <img 
+                                                            src={`https://quickchart.io/qr?text=${encodeURIComponent(getLoginLink(selectedAgent.nickname))}&size=120&margin=1`} 
+                                                            alt="Agent QR Code"
+                                                            className="w-[120px] h-[120px]"
+                                                        />
+                                                    </div>
+                                                    <div className="flex flex-col justify-center gap-2">
+                                                        <div className="bg-white/10 backdrop-blur-md px-4 py-2.5 rounded-xl border border-white/20 text-indigo-50 font-mono text-[10px] truncate max-w-[250px]">
+                                                            {getLoginLink(selectedAgent.nickname)}
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button 
+                                                                onClick={() => {
+                                                                    navigator.clipboard.writeText(getLoginLink(selectedAgent.nickname));
+                                                                    alert("Link di accesso copiato!");
+                                                                }}
+                                                                className="flex-1 bg-white text-indigo-700 px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-white/90 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                                            >
+                                                                <Copy className="w-3.5 h-3.5" /> Copia
+                                                            </button>
+                                                            <button 
+                                                                onClick={async () => {
+                                                                    if (navigator.share) {
+                                                                        try {
+                                                                            await navigator.share({
+                                                                                title: 'Accesso RentSync Pro',
+                                                                                text: `Ecco il tuo link di accesso per RentSync Pro Mobile, ${selectedAgent.name}:`,
+                                                                                url: getLoginLink(selectedAgent.nickname)
+                                                                            });
+                                                                        } catch (err) { console.log(err); }
+                                                                    } else {
+                                                                        alert("Condivisione non supportata su questo browser. Usa 'Copia Link'.");
+                                                                    }
+                                                                }}
+                                                                className="flex-1 bg-indigo-500 text-white px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-indigo-400 active:scale-95 transition-all flex items-center justify-center gap-2 border border-white/20"
+                                                            >
+                                                                <Share2 className="w-3.5 h-3.5" /> Condividi
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div className="flex flex-col gap-3 w-full md:w-auto">
-                                                 <div className="bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/20 text-indigo-50 font-mono text-xs truncate max-w-[300px]">
-                                                     {getLoginLink(selectedAgent.nickname)}
-                                                 </div>
-                                                 <button 
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(getLoginLink(selectedAgent.nickname));
-                                                        alert("Link di accesso copiato per: " + selectedAgent.name);
-                                                    }}
-                                                    className="w-full bg-white text-indigo-700 px-6 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-white/90 active:scale-95 transition-all shadow-lg"
-                                                 >
-                                                     Copia Link Intelligente
-                                                 </button>
+                                            
+                                            <div className="hidden md:block z-10 opacity-20 transform rotate-12">
+                                                <QrCode className="w-48 h-48" />
                                             </div>
                                         </div>
 
